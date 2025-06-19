@@ -210,4 +210,4 @@ if menu == "Home":
 
             # Hack to clear input field without rerun
             st.success("Sent! Scroll to see your message.")
-            st.experimental_set_query_params(**{"refresh": datetime.datetime.now().timestamp()})
+            st.query_params(**{"refresh": datetime.datetime.now().timestamp()})
