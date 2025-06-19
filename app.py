@@ -1,11 +1,11 @@
 import datetime
 import streamlit as st
-import requests
+import requests  # make sure requests is imported
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# set up firebase stuff if not already initialized
+# Initialize Firebase Admin SDK only once
 if not firebase_admin._apps:
     service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
     key_dict = json.loads(service_account_json)
@@ -15,7 +15,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 
-# signup new user
+# Signup new user
 def signup(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
     payload = {
@@ -25,23 +25,24 @@ def signup(email, password):
     }
     return requests.post(url, json=payload).json()
 
-# login existing user
+# Login existing user
 def login(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
-    return requests.post(url, json={"email": email, "password": password, "returnSecureToken": True}).json()
+    payload = {"email": email, "password": password, "returnSecureToken": True}
+    return requests.post(url, json=payload).json()
 
-# send email verification
+# Send email verification
 def send_verification_email(id_token):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
     return requests.post(url, json={"requestType": "VERIFY_EMAIL", "idToken": id_token}).json()
 
-# check if email is verified
+# Check if email is verified
 def check_email_verified(id_token):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={FIREBASE_API_KEY}"
     res = requests.post(url, json={"idToken": id_token}).json()
     return res.get("users", [{}])[0].get("emailVerified", False)
 
-# make a new idea post
+# Make a new idea post
 def post_idea(title, description, user_uid):
     db.collection("posts").add({
         "title": title,
@@ -51,12 +52,12 @@ def post_idea(title, description, user_uid):
         "team": [user_uid]
     })
 
-# fetch all posts sorted by time
+# Fetch all posts sorted by creation time
 def get_all_posts():
     posts = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
     return [(doc.id, doc.to_dict()) for doc in posts]
 
-# add a user to a team on a post
+# Add a user to a team on a post
 def join_team(post_id, user_uid):
     ref = db.collection("posts").document(post_id)
     doc = ref.get()
@@ -66,11 +67,11 @@ def join_team(post_id, user_uid):
             data["team"].append(user_uid)
             ref.update({"team": data["team"]})
 
-# app UI
+# Streamlit UI starts here
 st.set_page_config(page_title="TeamUp", layout="centered")
 st.title("TeamUp - Build Teams on Ideas")
 
-# if user not logged in
+# User not logged in: show login/signup
 if "id_token" not in st.session_state:
     st.subheader("Login or Sign Up")
     tab1, tab2 = st.tabs(["Login", "Sign Up"])
@@ -79,35 +80,41 @@ if "id_token" not in st.session_state:
         email = st.text_input("Email", key="login_email")
         password = st.text_input("Password", type="password", key="login_password")
         if st.button("Login"):
-            res = login(email, password)
-            if "idToken" in res:
-                if check_email_verified(res["idToken"]):
-                    st.session_state["id_token"] = res["idToken"]
-                    st.session_state["email"] = email
-                    st.session_state["user_uid"] = res["localId"]
-                    st.success("You're in.")
-                else:
-                    st.warning("Email not verified yet.")
+            if not email or not password:
+                st.warning("Please enter email and password.")
             else:
-                st.error("Something went wrong during login.")
+                res = login(email, password)
+                if "idToken" in res:
+                    if check_email_verified(res["idToken"]):
+                        st.session_state["id_token"] = res["idToken"]
+                        st.session_state["email"] = email
+                        st.session_state["user_uid"] = res["localId"]
+                        st.success("You're in.")
+                    else:
+                        st.warning("Email not verified yet.")
+                else:
+                    st.error("Something went wrong during login.")
 
     with tab2:
         email = st.text_input("Email", key="signup_email")
         password = st.text_input("Password", type="password", key="signup_password")
         if st.button("Sign Up"):
-            res = signup(email, password)
-            if "idToken" in res:
-                send_verification_email(res["idToken"])
-                st.success("Check your email for a verification link.")
+            if not email or not password:
+                st.warning("Please enter email and password.")
             else:
-                st.error("Could not sign up.")
+                res = signup(email, password)
+                if "idToken" in res:
+                    send_verification_email(res["idToken"])
+                    st.success("Check your email for a verification link.")
+                else:
+                    st.error("Could not sign up.")
 
-# if logged in
+# User logged in: show main app
 else:
     st.sidebar.write(f"Logged in as: {st.session_state['email']}")
     if st.sidebar.button("Logout"):
         st.session_state.clear()
-        st.rerun()
+        st.experimental_rerun()
 
     menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Rules"])
 
@@ -121,7 +128,7 @@ else:
                     if st.button("Join Team", key=post_id):
                         join_team(post_id, st.session_state["user_uid"])
                         st.success("You're now part of this team.")
-                        st.rerun()
+                        st.experimental_rerun()
 
     elif menu == "Submit Idea":
         st.header("Got an Idea?")
@@ -131,7 +138,7 @@ else:
             if title and description:
                 post_idea(title, description, st.session_state["user_uid"])
                 st.success("Posted.")
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.warning("Please fill both fields.")
 
