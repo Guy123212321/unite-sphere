@@ -165,3 +165,36 @@ else:
         - Don’t just join random teams for no reason  
         - If you join a team, try to stay active
         """)
+
+if menu == "Home":
+    st.header("Team Chat")
+
+    selected_post_id = st.selectbox(
+        "Choose a team to chat in:",
+        [pid for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]],
+        format_func=lambda pid: next(p["title"] for p_id, p in get_all_posts() if p_id == pid),
+    )
+
+    chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
+    chat_messages = chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream()
+
+    st.markdown("---")
+    st.subheader("Chat")
+
+    for msg in chat_messages:
+        msg_data = msg.to_dict()
+        sender = msg_data["sender"]
+        content = msg_data["message"]
+        timestamp = msg_data["timestamp"].strftime("%Y-%m-%d %H:%M")
+        st.markdown(f"**{sender}**: {content}  \n*{timestamp}*")
+
+    st.markdown("---")
+    new_msg = st.text_input("Type your message...")
+    if st.button("Send"):
+        if new_msg.strip():
+            chat_ref.add({
+                "sender": st.session_state["email"],
+                "message": new_msg.strip(),
+                "timestamp": datetime.datetime.utcnow()
+            })
+            st.experimental_rerun()
