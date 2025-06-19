@@ -5,14 +5,16 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Set page config once at the very start
 st.set_page_config(page_title="Unite Sphere", layout="centered")
 
-# Handle rerun flag safely here
-if st.session_state.get("rerun_now", False):
+# Initialize session state flag if not present
+if "rerun_now" not in st.session_state:
+    st.session_state["rerun_now"] = False
+
+# Safe rerun logic
+if st.session_state["rerun_now"]:
     st.session_state["rerun_now"] = False
     st.experimental_rerun()
-
 # Firebase setup - initialize only once
 if not firebase_admin._apps:
     service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
