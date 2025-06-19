@@ -5,7 +5,11 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# One-time rerun handler
+# Initialize Firebase here (keep as you have)
+
+st.set_page_config(page_title="Unite Sphere", layout="centered")
+
+# Then, after config and initialization:
 if st.session_state.get("rerun_now", False):
     st.session_state["rerun_now"] = False
     st.experimental_rerun()
