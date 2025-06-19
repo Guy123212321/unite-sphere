@@ -68,7 +68,7 @@ def join_team(post_id, user_uid):
 
 # UI
 st.set_page_config(page_title="Unite Sphere", layout="centered")
-st.title("TeamUp - Build Teams on Ideas")
+st.title("Unite Sphere - Build Teams on Ideas")
 
 if "id_token" not in st.session_state:
     st.subheader("Login or Sign Up")
