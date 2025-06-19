@@ -169,43 +169,45 @@ else:
 if menu == "Home":
     st.header("Team Chat 💬")
 
+    # Get teams the user is part of
     user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
 
     if not user_posts:
-        st.info("You're not in any team yet! Join a team to start chatting.")
+        st.info("You're not in any team yet! Join a team to chat.")
     else:
-        selected_post_id = st.selectbox(
+        # Let user choose which team chat to view
+        selected_post_id, selected_title = st.selectbox(
             "Choose a team to chat in:",
             user_posts,
             format_func=lambda x: x[1],
-            key="chat_post_select"
+            key="chat_team_select"
         )
 
-        selected_post_id = selected_post_id[0]  # get just the ID
-
+        st.subheader(f"Chat Room for: {selected_title}")
         chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
-        chat_messages = chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream()
+
+        # Chat display
+        with st.container():
+            chat_messages = chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream()
+            for msg in chat_messages:
+                msg_data = msg.to_dict()
+                sender = msg_data.get("sender", "Unknown")
+                content = msg_data.get("message", "")
+                timestamp = msg_data.get("timestamp", datetime.datetime.utcnow())
+                time_str = timestamp.strftime("%Y-%m-%d %H:%M")
+                st.markdown(f"**{sender}**: {content}  \n*{time_str}*")
 
         st.markdown("---")
-        st.subheader("Chat with Your Team")
+        new_msg = st.text_input("Your message", key=f"chat_input_{selected_post_id}")
 
-        for msg in chat_messages:
-            msg_data = msg.to_dict()
-            sender = msg_data.get("sender", "Unknown")
-            content = msg_data.get("message", "")
-            timestamp = msg_data.get("timestamp", datetime.datetime.utcnow())
-            timestamp_str = timestamp.strftime("%Y-%m-%d %H:%M")
-            st.markdown(f"**{sender}**: {content}  \n*{timestamp_str}*")
+        send = st.button("Send Message", key=f"send_button_{selected_post_id}")
+        if send and new_msg.strip():
+            chat_ref.add({
+                "sender": st.session_state["email"],
+                "message": new_msg.strip(),
+                "timestamp": datetime.datetime.utcnow()
+            })
 
-        st.markdown("---")
-        new_msg = st.text_input("Type your message...", key="chat_input")
-        if st.button("Send Message"):
-            if new_msg.strip():
-                chat_ref.add({
-                    "sender": st.session_state["email"],
-                    "message": new_msg.strip(),
-                    "timestamp": datetime.datetime.utcnow()
-                })
-                st.success("Message sent!")
-                st.session_state["last_msg_sent"] = True
-                st.experimental_rerun()
+            # Hack to clear input field without rerun
+            st.success("Sent! Scroll to see your message.")
+            st.experimental_set_query_params(**{"refresh": datetime.datetime.now().timestamp()})
