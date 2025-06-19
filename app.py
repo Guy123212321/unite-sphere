@@ -5,17 +5,15 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Initialize Firebase here (keep as you have)
-
-
+# Set page config once at the very start
 st.set_page_config(page_title="Unite Sphere", layout="centered")
 
-# Then rerun check inside main flow
+# Handle rerun flag safely here
 if st.session_state.get("rerun_now", False):
     st.session_state["rerun_now"] = False
     st.experimental_rerun()
 
-# Firebase setup
+# Firebase setup - initialize only once
 if not firebase_admin._apps:
     service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
     key_dict = json.loads(service_account_json)
