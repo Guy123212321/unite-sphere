@@ -207,4 +207,5 @@ if menu == "Home":
                     "timestamp": datetime.datetime.utcnow()
                 })
                 st.success("Message sent!")
+                st.session_state["last_msg_sent"] = True
                 st.experimental_rerun()
