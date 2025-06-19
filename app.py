@@ -68,7 +68,7 @@ def join_team(post_id, user_uid):
             ref.update({"team": data["team"]})
 
 # Streamlit UI starts here
-st.set_page_config(page_title="TeamUp", layout="centered")
+st.set_page_config(page_title="Unite Sphere", layout="centered")
 st.title("TeamUp - Build Teams on Ideas")
 
 # User not logged in: show login/signup
