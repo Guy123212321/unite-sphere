@@ -1,29 +1,40 @@
-import datetime
 import streamlit as st
+import datetime
 import requests
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# ✅ Set config
 st.set_page_config(page_title="Unite Sphere", layout="centered")
 
-# Initialize session state flag if not present
-if "rerun_now" not in st.session_state:
-    st.session_state["rerun_now"] = False
+# ✅ Delay rerun logic by wrapping inside main function
+def main():
+    # ✅ Initialize rerun flag if not set
+    if "rerun_now" not in st.session_state:
+        st.session_state["rerun_now"] = False
 
-# Safe rerun logic
-if st.session_state["rerun_now"]:
-    st.session_state["rerun_now"] = False
-    st.experimental_rerun()
-# Firebase setup - initialize only once
-if not firebase_admin._apps:
-    service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
-    key_dict = json.loads(service_account_json)
-    cred = credentials.Certificate(key_dict)
-    firebase_admin.initialize_app(cred)
+    # ✅ Safe rerun check
+    if st.session_state["rerun_now"]:
+        st.session_state["rerun_now"] = False
+        st.experimental_rerun()
 
-db = firestore.client()
-FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
+    # ✅ Firebase setup inside main
+    if not firebase_admin._apps:
+        service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
+        key_dict = json.loads(service_account_json)
+        cred = credentials.Certificate(key_dict)
+        firebase_admin.initialize_app(cred)
+
+    # ✅ Return Firestore instance + API key
+    db = firestore.client()
+    FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
+
+    # Return these to the rest of your app
+    return db, FIREBASE_API_KEY
+
+# ✅ Call main() and get db + key for app
+db, FIREBASE_API_KEY = main()
 
 # Auth functions
 def signup(email, password):
