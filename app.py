@@ -5,36 +5,29 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# ✅ Set config
+# Set page layout
 st.set_page_config(page_title="Unite Sphere", layout="centered")
 
-# ✅ Delay rerun logic by wrapping inside main function
-def main():
-    # ✅ Initialize rerun flag if not set
-    if "rerun_now" not in st.session_state:
-        st.session_state["rerun_now"] = False
+# Initialize session flags only once
+if "rerun_now" not in st.session_state:
+    st.session_state["rerun_now"] = False
 
-    # ✅ Safe rerun check
-    if st.session_state["rerun_now"]:
+# Firebase setup - make sure it's initialized once
+if not firebase_admin._apps:
+    service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
+    key_dict = json.loads(service_account_json)
+    cred = credentials.Certificate(key_dict)
+    firebase_admin.initialize_app(cred)
+
+# Set up Firestore client and API key
+db = firestore.client()
+FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
+
+# Handle rerun safely (call only after interactions)
+def handle_rerun():
+    if st.session_state.get("rerun_now", False):
         st.session_state["rerun_now"] = False
         st.experimental_rerun()
-
-    # ✅ Firebase setup inside main
-    if not firebase_admin._apps:
-        service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
-        key_dict = json.loads(service_account_json)
-        cred = credentials.Certificate(key_dict)
-        firebase_admin.initialize_app(cred)
-
-    # ✅ Return Firestore instance + API key
-    db = firestore.client()
-    FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
-
-    # Return these to the rest of your app
-    return db, FIREBASE_API_KEY
-
-# ✅ Call main() and get db + key for app
-db, FIREBASE_API_KEY = main()
 
 # Auth functions
 def signup(email, password):
@@ -80,7 +73,6 @@ def join_team(post_id, user_uid):
             ref.update({"team": data["team"]})
 
 # UI
-st.set_page_config(page_title="Unite Sphere", layout="centered")
 st.title("Unite Sphere - Build Teams on Ideas")
 
 if "id_token" not in st.session_state:
@@ -102,6 +94,7 @@ if "id_token" not in st.session_state:
                         st.session_state["user_uid"] = res["localId"]
                         st.success("You're in!")
                         st.session_state["rerun_now"] = True
+                        handle_rerun()
                     else:
                         st.warning("Looks like you haven't verified your email yet.")
                 else:
@@ -126,6 +119,7 @@ else:
     if st.sidebar.button("Logout"):
         st.session_state.clear()
         st.session_state["rerun_now"] = True
+        handle_rerun()
 
     menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Rules"])
 
@@ -140,6 +134,7 @@ else:
                         join_team(post_id, st.session_state["user_uid"])
                         st.success("You joined this team!")
                         st.session_state["rerun_now"] = True
+                        handle_rerun()
 
     elif menu == "Submit Idea":
         st.header("Got an Idea?")
@@ -150,6 +145,7 @@ else:
                 post_idea(title, description, st.session_state["user_uid"])
                 st.success("Your idea is posted!")
                 st.session_state["rerun_now"] = True
+                handle_rerun()
             else:
                 st.warning("Make sure to fill both the title and description!")
 
@@ -162,50 +158,42 @@ else:
         - If you join a team, try to stay active
         """)
 
-if menu == "Home":
-    st.header("Team Chat 💬")
+    if menu == "Home":
+        st.header("Team Chat 💬")
 
-    # Get teams the user is part of
-    user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
+        user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
 
-    if not user_posts:
-        st.info("You're not in any team yet! Join a team to chat.")
-    else:
-        # Let user choose which team chat to view
-        selected_post_id, selected_title = st.selectbox(
-            "Choose a team to chat in:",
-            user_posts,
-            format_func=lambda x: x[1],
-            key="chat_team_select"
-        )
+        if not user_posts:
+            st.info("You're not in any team yet! Join a team to chat.")
+        else:
+            selected_post_id, selected_title = st.selectbox(
+                "Choose a team to chat in:",
+                user_posts,
+                format_func=lambda x: x[1],
+                key="chat_team_select"
+            )
 
-        st.subheader(f"Chat Room for: {selected_title}")
-        chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
+            st.subheader(f"Chat Room for: {selected_title}")
+            chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
 
-        # Chat display
-        with st.container():
-            chat_messages = chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream()
-            for msg in chat_messages:
-                msg_data = msg.to_dict()
-                sender = msg_data.get("sender", "Unknown")
-                content = msg_data.get("message", "")
-                timestamp = msg_data.get("timestamp", datetime.datetime.utcnow())
-                time_str = timestamp.strftime("%Y-%m-%d %H:%M")
-                st.markdown(f"**{sender}**: {content}  \n*{time_str}*")
+            with st.container():
+                chat_messages = chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream()
+                for msg in chat_messages:
+                    msg_data = msg.to_dict()
+                    sender = msg_data.get("sender", "Unknown")
+                    content = msg_data.get("message", "")
+                    timestamp = msg_data.get("timestamp", datetime.datetime.utcnow())
+                    time_str = timestamp.strftime("%Y-%m-%d %H:%M")
+                    st.markdown(f"**{sender}**: {content}  \n*{time_str}*")
 
-        st.markdown("---")
-        new_msg = st.text_input("Your message", key=f"chat_input_{selected_post_id}")
+            st.markdown("---")
+            new_msg = st.text_input("Your message", key=f"chat_input_{selected_post_id}")
 
-        send = st.button("Send Message", key=f"send_button_{selected_post_id}")
-        if send and new_msg.strip():
-            chat_ref.add({
-                "sender": st.session_state["email"],
-                "message": new_msg.strip(),
-                "timestamp": datetime.datetime.utcnow()
-            })
-
-            # Hack to clear input field without rerun
-            st.success("Sent! Scroll to see your message.")
-            params = st.query_params
-            params["refresh"] = str(datetime.datetime.now().timestamp())
-            st.query_params = params
+            send = st.button("Send Message", key=f"send_button_{selected_post_id}")
+            if send and new_msg.strip():
+                chat_ref.add({
+                    "sender": st.session_state["email"],
+                    "message": new_msg.strip(),
+                    "timestamp": datetime.datetime.utcnow()
+                })
+                st.success("Sent! Scroll to see your message.")
