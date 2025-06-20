@@ -8,14 +8,9 @@ from firebase_admin import credentials, firestore
 # Set page layout
 st.set_page_config(page_title="Unite Sphere", layout="centered")
 
-# Safe rerun handler
-if "rerun_flag" not in st.session_state:
-    st.session_state["rerun_flag"] = False
-
-if st.session_state["rerun_flag"]:
-    st.session_state["rerun_flag"] = False
-    st.stop()
-    st.experimental_rerun()
+# Initialize session flags only once
+if "rerun_now" not in st.session_state:
+    st.session_state["rerun_now"] = False
 
 # Firebase setup - make sure it's initialized once
 if not firebase_admin._apps:
@@ -101,8 +96,8 @@ if "id_token" not in st.session_state:
                         st.session_state["email"] = email
                         st.session_state["user_uid"] = res["localId"]
                         st.success("You're in!")
-                        st.session_state["rerun_flag"] = True
-                        st.stop()
+                        st.session_state["rerun_now"] = True
+                        st.stop()  # stop before rerun
                     else:
                         st.warning("Looks like you haven't verified your email yet.")
                 else:
@@ -126,8 +121,8 @@ else:
     st.sidebar.write(f"Logged in as: {st.session_state['email']}")
     if st.sidebar.button("Logout"):
         st.session_state.clear()
-        st.session_state["rerun_flag"] = True
-        st.stop()
+        st.session_state["rerun_now"] = True
+        st.stop()  # stop before rerun
 
     menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Rules"])
 
@@ -141,7 +136,7 @@ else:
                     if st.button("Join Team", key=post_id):
                         join_team(post_id, st.session_state["user_uid"])
                         st.success("You joined this team!")
-                        st.session_state["rerun_flag"] = True
+                        st.session_state["rerun_now"] = True
                         st.stop()
                 if post["createdBy"] == st.session_state["user_uid"]:
                     new_title = st.text_input("Edit Title", value=post["title"], key=f"title_{post_id}")
@@ -149,12 +144,12 @@ else:
                     if st.button("Update Idea", key=f"update_{post_id}"):
                         update_idea(post_id, new_title, new_desc)
                         st.success("Idea updated!")
-                        st.session_state["rerun_flag"] = True
+                        st.session_state["rerun_now"] = True
                         st.stop()
                     if st.button("Delete Idea", key=f"delete_{post_id}"):
                         delete_idea(post_id)
                         st.success("Idea deleted!")
-                        st.session_state["rerun_flag"] = True
+                        st.session_state["rerun_now"] = True
                         st.stop()
 
     elif menu == "Submit Idea":
@@ -165,7 +160,7 @@ else:
             if title and description:
                 post_idea(title, description, st.session_state["user_uid"])
                 st.success("Your idea is posted!")
-                st.session_state["rerun_flag"] = True
+                st.session_state["rerun_now"] = True
                 st.stop()
             else:
                 st.warning("Make sure to fill both the title and description!")
@@ -192,14 +187,6 @@ else:
             st.subheader(f"Chat Room for: {selected_title}")
             chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
 
-            # Team members
-            team_doc = db.collection("posts").document(selected_post_id).get()
-            if team_doc.exists:
-                team_data = team_doc.to_dict().get("team", [])
-                st.markdown("**Team Members:**")
-                for member in team_data:
-                    st.markdown(f"- {member}")
-
             chat_messages = list(chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream())
             for msg in chat_messages:
                 msg_data = msg.to_dict()
@@ -210,8 +197,7 @@ else:
                     if st.button("Delete", key=f"del_{msg.id}"):
                         chat_ref.document(msg.id).delete()
                         st.success("Message deleted!")
-                        st.session_state["rerun_flag"] = True
-                        st.stop()
+                        st.experimental_rerun()
 
             st.markdown("---")
             new_msg = st.text_input("Your message", key=f"chat_input_{selected_post_id}")
@@ -223,5 +209,4 @@ else:
                     "timestamp": datetime.datetime.utcnow()
                 })
                 st.success("Sent! Scroll to see your message.")
-                st.session_state["rerun_flag"] = True
-                st.stop()
+                st.experimental_rerun()
