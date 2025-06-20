@@ -133,14 +133,18 @@ if not firebase_admin._apps:
     service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
     key_dict = json.loads(service_account_json)
     cred = credentials.Certificate(key_dict)
+    # Get storage bucket name from secrets
+    storage_bucket = st.secrets["FIREBASE_STORAGE_BUCKET"]
     firebase_admin.initialize_app(cred, {
-        'storageBucket': st.secrets["FIREBASE_STORAGE_BUCKET"]
+        'storageBucket': storage_bucket
     })
 
 # Set up Firestore client and API key
 db = firestore.client()
 FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
-FIREBASE_BUCKET = storage.bucket()
+# Get storage bucket explicitly
+storage_bucket = st.secrets["FIREBASE_STORAGE_BUCKET"]
+FIREBASE_BUCKET = storage.bucket(storage_bucket)  # Fixed: Pass bucket name explicitly
 
 # Auth functions
 def signup(email, password):
