@@ -23,12 +23,6 @@ if not firebase_admin._apps:
 db = firestore.client()
 FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 
-# Handle rerun safely (call only after interactions)
-def handle_rerun():
-    if st.session_state.get("rerun_now", False):
-        st.session_state["rerun_now"] = False
-        st.experimental_rerun()
-
 # Auth functions
 def signup(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
@@ -93,8 +87,7 @@ if "id_token" not in st.session_state:
                         st.session_state["email"] = email
                         st.session_state["user_uid"] = res["localId"]
                         st.success("You're in!")
-                        st.session_state["rerun_now"] = True
-                        handle_rerun()
+                        st.experimental_rerun()
                     else:
                         st.warning("Looks like you haven't verified your email yet.")
                 else:
@@ -118,8 +111,7 @@ else:
     st.sidebar.write(f"Logged in as: {st.session_state['email']}")
     if st.sidebar.button("Logout"):
         st.session_state.clear()
-        st.session_state["rerun_now"] = True
-        handle_rerun()
+        st.experimental_rerun()
 
     menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Rules"])
 
@@ -133,8 +125,7 @@ else:
                     if st.button("Join Team", key=post_id):
                         join_team(post_id, st.session_state["user_uid"])
                         st.success("You joined this team!")
-                        st.session_state["rerun_now"] = True
-                        handle_rerun()
+                        st.experimental_rerun()
 
     elif menu == "Submit Idea":
         st.header("Got an Idea?")
@@ -144,8 +135,7 @@ else:
             if title and description:
                 post_idea(title, description, st.session_state["user_uid"])
                 st.success("Your idea is posted!")
-                st.session_state["rerun_now"] = True
-                handle_rerun()
+                st.experimental_rerun()
             else:
                 st.warning("Make sure to fill both the title and description!")
 
@@ -192,6 +182,11 @@ else:
             if send and new_msg.strip():
                 chat_ref.add({
                     "sender": st.session_state["email"],
+                    "message": new_msg.strip(),
+                    "timestamp": datetime.datetime.utcnow()
+                })
+                st.success("Sent! Scroll to see your message.")
+
                     "message": new_msg.strip(),
                     "timestamp": datetime.datetime.utcnow()
                 })
