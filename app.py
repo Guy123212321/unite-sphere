@@ -75,6 +75,41 @@ def join_team(post_id, user_uid):
             data["team"].append(user_uid)
             ref.update({"team": data["team"]})
 
+st.markdown(
+    """
+    <style>
+    /* Background */
+    .main {
+        background-color: #e6f2ff;
+    }
+    /* Headers */
+    h1, h2, h3 {
+        color: #0b3d91;
+        font-family: 'Arial Black', Gadget, sans-serif;
+    }
+    /* Buttons */
+    div.stButton > button {
+        background: linear-gradient(45deg, #6a11cb 0%, #2575fc 100%);
+        color: white;
+        font-weight: bold;
+        border-radius: 10px;
+        padding: 8px 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: background 0.3s ease;
+    }
+    div.stButton > button:hover {
+        background: linear-gradient(45deg, #2575fc 0%, #6a11cb 100%);
+    }
+    /* Text Inputs */
+    input[type="text"], input[type="password"], textarea {
+        border: 2px solid #2575fc !important;
+        border-radius: 8px;
+        padding: 8px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 # UI
 st.title("Unite Sphere - Build Teams on Ideas")
 
