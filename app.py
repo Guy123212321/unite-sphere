@@ -5,25 +5,39 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Config
+# Set page layout
 st.set_page_config(page_title="Unite Sphere", layout="centered")
 
-# Firebase init
+# Safe rerun handler
+if "rerun_flag" not in st.session_state:
+    st.session_state["rerun_flag"] = False
+
+if st.session_state["rerun_flag"]:
+    st.session_state["rerun_flag"] = False
+    st.stop()
+    st.experimental_rerun()
+
+# Firebase setup - make sure it's initialized once
 if not firebase_admin._apps:
-    cred = credentials.Certificate(json.loads(st.secrets["FIREBASE_SERVICE_ACCOUNT"]))
+    service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
+    key_dict = json.loads(service_account_json)
+    cred = credentials.Certificate(key_dict)
     firebase_admin.initialize_app(cred)
 
+# Set up Firestore client and API key
 db = firestore.client()
 FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 
-# Firebase Auth
+# Auth functions
 def signup(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
-    return requests.post(url, json={"email": email, "password": password, "returnSecureToken": True}).json()
+    payload = {"email": email, "password": password, "returnSecureToken": True}
+    return requests.post(url, json=payload).json()
 
 def login(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_API_KEY}"
-    return requests.post(url, json={"email": email, "password": password, "returnSecureToken": True}).json()
+    payload = {"email": email, "password": password, "returnSecureToken": True}
+    return requests.post(url, json=payload).json()
 
 def send_verification_email(id_token):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
@@ -34,159 +48,180 @@ def check_email_verified(id_token):
     res = requests.post(url, json={"idToken": id_token}).json()
     return res.get("users", [{}])[0].get("emailVerified", False)
 
-# Post Functions
-def post_idea(title, desc, uid):
+# Firestore post functions
+def post_idea(title, description, user_uid):
     db.collection("posts").add({
         "title": title,
-        "description": desc,
+        "description": description,
         "createdAt": datetime.datetime.utcnow(),
-        "createdBy": uid,
-        "team": [uid]
+        "createdBy": user_uid,
+        "team": [user_uid]
     })
+
+def update_idea(post_id, new_title, new_description):
+    db.collection("posts").document(post_id).update({
+        "title": new_title,
+        "description": new_description
+    })
+
+def delete_idea(post_id):
+    db.collection("posts").document(post_id).delete()
 
 def get_all_posts():
     posts = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
     return [(doc.id, doc.to_dict()) for doc in posts]
 
-def update_idea(pid, title, desc):
-    db.collection("posts").document(pid).update({"title": title, "description": desc})
-
-def delete_idea(pid):
-    db.collection("posts").document(pid).delete()
-
-def join_team(pid, uid):
-    ref = db.collection("posts").document(pid)
+def join_team(post_id, user_uid):
+    ref = db.collection("posts").document(post_id)
     doc = ref.get()
     if doc.exists:
-        team = doc.to_dict().get("team", [])
-        if uid not in team:
-            team.append(uid)
-            ref.update({"team": team})
+        data = doc.to_dict()
+        if user_uid not in data["team"]:
+            data["team"].append(user_uid)
+            ref.update({"team": data["team"]})
 
-# Header / Login Sidebar
-st.title("Unite Sphere")
+# UI
+st.title("Unite Sphere - Build Teams on Ideas")
 
 if "id_token" not in st.session_state:
-    menu = st.sidebar.radio("Login / Sign Up", ["Login", "Sign Up"])
-    email = st.sidebar.text_input("Email")
-    password = st.sidebar.text_input("Password", type="password")
+    st.subheader("Login or Sign Up")
+    tab1, tab2 = st.tabs(["Login", "Sign Up"])
 
-    if menu == "Login":
-        if st.sidebar.button("Login"):
-            if email and password:
+    with tab1:
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_password")
+        if st.button("Login"):
+            if not email or not password:
+                st.warning("Hey, don't forget to enter your email and password!")
+            else:
                 res = login(email, password)
                 if "idToken" in res:
                     if check_email_verified(res["idToken"]):
                         st.session_state["id_token"] = res["idToken"]
                         st.session_state["email"] = email
                         st.session_state["user_uid"] = res["localId"]
-                        st.success("You're logged in!")
-                        st.experimental_rerun()
+                        st.success("You're in!")
+                        st.session_state["rerun_flag"] = True
+                        st.stop()
                     else:
-                        st.warning("Verify your email before logging in.")
+                        st.warning("Looks like you haven't verified your email yet.")
                 else:
-                    st.error("Invalid credentials.")
-    else:
-        if st.sidebar.button("Sign Up"):
-            if email and password:
+                    st.error("Hmm, login failed. Double-check your credentials?")
+
+    with tab2:
+        email = st.text_input("Email", key="signup_email")
+        password = st.text_input("Password", type="password", key="signup_password")
+        if st.button("Sign Up"):
+            if not email or not password:
+                st.warning("You gotta enter both email and password to sign up.")
+            else:
                 res = signup(email, password)
                 if "idToken" in res:
                     send_verification_email(res["idToken"])
-                    st.success("Check your email to verify.")
+                    st.success("Almost done! Check your email for the verification link.")
                 else:
-                    st.error("Sign-up failed.")
-    
-    st.info("Log in to access full features.")
+                    st.error("Sign up didn't go through. Try again?")
 
 else:
-    st.sidebar.success(f"Logged in as {st.session_state['email']}")
+    st.sidebar.write(f"Logged in as: {st.session_state['email']}")
     if st.sidebar.button("Logout"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.session_state["rerun_flag"] = True
+        st.stop()
 
     menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Rules"])
 
     if menu == "Home":
-        st.header("Ideas")
+        st.header("Ideas List")
         for post_id, post in get_all_posts():
             with st.expander(post["title"]):
                 st.write(post["description"])
                 st.write(f"Team Members: {len(post['team'])}")
-                for uid in post["team"]:
-                    st.markdown(f"- {uid}")
                 if st.session_state["user_uid"] not in post["team"]:
-                    if st.button("Join Team", key=f"join_{post_id}"):
+                    if st.button("Join Team", key=post_id):
                         join_team(post_id, st.session_state["user_uid"])
-                        st.success("Joined team!")
-                        st.experimental_rerun()
+                        st.success("You joined this team!")
+                        st.session_state["rerun_flag"] = True
+                        st.stop()
                 if post["createdBy"] == st.session_state["user_uid"]:
-                    new_title = st.text_input("Edit Title", value=post["title"], key=f"edit_title_{post_id}")
-                    new_desc = st.text_area("Edit Desc", value=post["description"], key=f"edit_desc_{post_id}")
-                    if st.button("Update", key=f"update_{post_id}"):
+                    new_title = st.text_input("Edit Title", value=post["title"], key=f"title_{post_id}")
+                    new_desc = st.text_area("Edit Description", value=post["description"], key=f"desc_{post_id}")
+                    if st.button("Update Idea", key=f"update_{post_id}"):
                         update_idea(post_id, new_title, new_desc)
-                        st.success("Idea updated.")
-                        st.experimental_rerun()
-                    if st.button("Delete", key=f"del_{post_id}"):
+                        st.success("Idea updated!")
+                        st.session_state["rerun_flag"] = True
+                        st.stop()
+                    if st.button("Delete Idea", key=f"delete_{post_id}"):
                         delete_idea(post_id)
-                        st.warning("Idea deleted.")
-                        st.experimental_rerun()
+                        st.success("Idea deleted!")
+                        st.session_state["rerun_flag"] = True
+                        st.stop()
 
     elif menu == "Submit Idea":
-        st.header("Submit Your Idea")
-        title = st.text_input("Title")
-        desc = st.text_area("Description")
+        st.header("Got an Idea?")
+        title = st.text_input("Idea Title")
+        description = st.text_area("What's it about?")
         if st.button("Post"):
-            if title and desc:
-                post_idea(title, desc, st.session_state["user_uid"])
-                st.success("Idea posted!")
-                st.experimental_rerun()
+            if title and description:
+                post_idea(title, description, st.session_state["user_uid"])
+                st.success("Your idea is posted!")
+                st.session_state["rerun_flag"] = True
+                st.stop()
             else:
-                st.warning("Both fields required.")
+                st.warning("Make sure to fill both the title and description!")
+
+    elif menu == "Rules":
+        st.header("Rules")
+        st.markdown("""
+        - Be respectful to others  
+        - No spamming please  
+        - Don’t just join random teams for no reason  
+        - If you join a team, try to stay active
+        """)
 
     elif menu == "Team Chat":
         st.header("Team Chat 💬")
-        user_teams = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
+        user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
 
-        if not user_teams:
-            st.info("You're not in any teams.")
+        if not user_posts:
+            st.info("You're not in any team yet! Join a team to chat.")
         else:
-            selected = st.selectbox("Select Team", user_teams, format_func=lambda x: x[1])
+            selected = st.selectbox("Choose a team to chat in:", user_posts, format_func=lambda x: x[1], key="chat_team_select")
             selected_post_id, selected_title = selected
-            st.subheader(f"Chat - {selected_title}")
+
+            st.subheader(f"Chat Room for: {selected_title}")
             chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
 
+            # Team members
             team_doc = db.collection("posts").document(selected_post_id).get()
-            team_data = team_doc.to_dict().get("team", []) if team_doc.exists else []
-            st.markdown("**Team Members:**")
-            for member in team_data:
-                st.markdown(f"- {member}")
+            if team_doc.exists:
+                team_data = team_doc.to_dict().get("team", [])
+                st.markdown("**Team Members:**")
+                for member in team_data:
+                    st.markdown(f"- {member}")
 
-            messages = list(chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream())
-            for msg in messages:
+            chat_messages = list(chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream())
+            for msg in chat_messages:
                 msg_data = msg.to_dict()
                 sender = msg_data.get("sender", "Unknown")
-                text = msg_data.get("message", "")
-                st.markdown(f"**{sender}**: {text}")
+                content = msg_data.get("message", "")
+                st.markdown(f"**{sender}**: {content}")
                 if sender == st.session_state["email"]:
                     if st.button("Delete", key=f"del_{msg.id}"):
                         chat_ref.document(msg.id).delete()
-                        st.experimental_rerun()
+                        st.success("Message deleted!")
+                        st.session_state["rerun_flag"] = True
+                        st.stop()
 
-            new_msg = st.text_input("Your message", key=f"msg_input_{selected_post_id}")
-            if st.button("Send", key=f"send_{selected_post_id}") and new_msg.strip():
+            st.markdown("---")
+            new_msg = st.text_input("Your message", key=f"chat_input_{selected_post_id}")
+            send = st.button("Send Message", key=f"send_button_{selected_post_id}")
+            if send and new_msg.strip():
                 chat_ref.add({
                     "sender": st.session_state["email"],
                     "message": new_msg.strip(),
                     "timestamp": datetime.datetime.utcnow()
                 })
-                st.success("Sent.")
-                st.experimental_rerun()
-
-    elif menu == "Rules":
-        st.header("Platform Rules")
-        st.markdown("""
-        - Be respectful to others  
-        - No spamming  
-        - Only join teams you want to contribute to  
-        - Stay active if you're in a team  
-        """)
+                st.success("Sent! Scroll to see your message.")
+                st.session_state["rerun_flag"] = True
+                st.stop()
