@@ -5,89 +5,99 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Set page layout
-st.set_page_config(page_title="UniteSphere", layout="centered")
 st.markdown(
     """
     <style>
-    /* Your entire CSS styling block here */
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
 
+    /* Background and font */
     .main {
-        background: linear-gradient(135deg, #8e2de2, #4a00e0);
+        background: linear-gradient(135deg, #2a1a4a, #1e1b2c);
         font-family: 'Poppins', sans-serif;
-        color: #fafafa;
+        color: #e0e0e0;
         padding: 30px 60px;
         min-height: 100vh;
     }
+
+    /* Headers */
     h1, h2, h3 {
-        color: #ff6ec4;
+        color: #90caf9; /* Light Blue */
         font-weight: 700;
-        text-shadow: 1px 1px 3px #2e004f;
+        text-shadow: 1px 1px 4px #0d0d24;
     }
+
+    /* Buttons */
     div.stButton > button {
-        background: linear-gradient(45deg, #ff6ec4, #7873f5);
-        color: white;
+        background: linear-gradient(45deg, #3949ab, #1e88e5);
+        color: #e3f2fd;
         font-weight: 700;
-        border-radius: 15px;
+        border-radius: 14px;
         padding: 14px 36px;
         font-size: 18px;
-        box-shadow: 0 6px 15px rgba(255,110,196,0.7);
+        box-shadow: 0 6px 15px rgba(30,136,229,0.7);
         transition: background 0.3s ease, box-shadow 0.3s ease;
     }
     div.stButton > button:hover {
-        background: linear-gradient(45deg, #7873f5, #ff6ec4);
-        box-shadow: 0 8px 25px rgba(120,115,245,0.9);
+        background: linear-gradient(45deg, #1e88e5, #3949ab);
+        box-shadow: 0 8px 25px rgba(57,73,171,0.9);
         cursor: pointer;
     }
+
+    /* Inputs */
     input[type="text"], input[type="password"], textarea {
-        border: 2px solid #ff6ec4 !important;
+        border: 2px solid #3949ab !important;
         border-radius: 14px !important;
         padding: 14px !important;
         font-size: 18px !important;
         font-family: 'Poppins', sans-serif !important;
-        background: #3a007d;
-        color: #fafafa;
-        box-shadow: 0 4px 14px rgba(255,110,196,0.4);
+        background: #2e2a4a;
+        color: #e0e0e0;
+        box-shadow: 0 4px 14px rgba(57,73,171,0.6);
         transition: border-color 0.3s ease, background 0.3s ease;
     }
     input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
-        border-color: #7873f5 !important;
-        background: #5e32a8 !important;
+        border-color: #90caf9 !important;
+        background: #3e3a65 !important;
         outline: none !important;
-        box-shadow: 0 0 12px #7873f5 !important;
+        box-shadow: 0 0 12px #90caf9 !important;
     }
+
+    /* Sidebar */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #ff6ec4, #7873f5);
-        color: white;
+        background: linear-gradient(180deg, #283593, #1a237e);
+        color: #c5cae9;
         font-family: 'Poppins', sans-serif;
     }
     [data-testid="stSidebar"] .css-1d391kg, 
     [data-testid="stSidebar"] .css-1v3fvcr {
-        color: white;
+        color: #c5cae9;
     }
+
+    /* Scrollbars */
     .stContainer > div {
         scrollbar-width: thin;
-        scrollbar-color: #ff6ec4 #2e004f;
+        scrollbar-color: #3949ab #1a237e;
     }
     .stContainer > div::-webkit-scrollbar {
         width: 8px;
     }
     .stContainer > div::-webkit-scrollbar-track {
-        background: #2e004f;
+        background: #1a237e;
     }
     .stContainer > div::-webkit-scrollbar-thumb {
-        background-color: #ff6ec4;
+        background-color: #3949ab;
         border-radius: 6px;
     }
+
+    /* Links */
     a, a:visited {
-        color: #ffb6d9;
+        color: #82b1ff;
         font-weight: 600;
         text-decoration: none;
     }
     a:hover {
         text-decoration: underline;
-        color: #f50083;
+        color: #448aff;
     }
     </style>
     """,
