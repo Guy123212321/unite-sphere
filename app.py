@@ -4,6 +4,7 @@ import requests
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
+import base64
 
 # At the very top, after st.set_page_config
 st.markdown(
@@ -11,47 +12,61 @@ st.markdown(
     <style>
     /* Background */
     .main {
-        background-color: #e6f2ff;
+        background-color: #121212;
+        color: #e0e0e0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding: 15px 30px;
     }
     /* Headers */
     h1, h2, h3 {
-        color: #0b3d91;
+        color: #00ffe7;
         font-family: 'Arial Black', Gadget, sans-serif;
     }
     /* Buttons */
     div.stButton > button {
-        background: linear-gradient(45deg, #6a11cb 0%, #2575fc 100%);
-        color: white;
+        background: linear-gradient(45deg, #00ffa2 0%, #00e1ff 100%);
+        color: #121212;
         font-weight: bold;
         border-radius: 10px;
         padding: 8px 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 8px rgba(0,255,255,0.4);
         transition: background 0.3s ease;
     }
     div.stButton > button:hover {
-        background: linear-gradient(45deg, #2575fc 0%, #6a11cb 100%);
+        background: linear-gradient(45deg, #00e1ff 0%, #00ffa2 100%);
     }
     /* Text Inputs */
     input[type="text"], input[type="password"], textarea {
-        border: 2px solid #2575fc !important;
+        border: 2px solid #00e1ff !important;
         border-radius: 8px;
         padding: 8px;
+        background-color: #222;
+        color: #e0e0e0;
+    }
+    /* Select boxes */
+    div[role="listbox"] {
+        background-color: #222;
+        color: #e0e0e0;
+        border-radius: 8px;
+        border: 2px solid #00e1ff !important;
+    }
+    /* Scrollbar for chat container */
+    .streamlit-expanderContent {
+        max-height: 300px;
+        overflow-y: auto;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
+def request_rerun():
+    st.session_state["rerun_now"] = True
+    st.stop()
+
 # Initialize session flags only once
 if "rerun_now" not in st.session_state:
     st.session_state["rerun_now"] = False
-
-# Safe rerun request helper
-def request_rerun():
-    # Only rerun if not already requested
-    if not st.session_state.get("rerun_now", False):
-        st.session_state["rerun_now"] = True
-        st.stop()
 
 # Firebase setup - make sure it's initialized once
 if not firebase_admin._apps:
@@ -116,10 +131,17 @@ def join_team(post_id, user_uid):
             data["team"].append(user_uid)
             ref.update({"team": data["team"]})
 
-# Start main app UI container div
-st.markdown('<div class="main">', unsafe_allow_html=True)
+# Products/Services functions
+def get_all_products_services():
+    items = db.collection("products_services").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+    return [(doc.id, doc.to_dict()) for doc in items]
 
-# UI Title
+def get_user_teams(user_uid):
+    posts = get_all_posts()
+    return [(pid, p["title"]) for pid, p in posts if user_uid in p["team"]]
+
+# UI starts
+st.markdown('<div class="main">', unsafe_allow_html=True)
 st.title("UniteSphere - Build Teams on Ideas")
 
 if "id_token" not in st.session_state:
@@ -166,7 +188,7 @@ else:
         st.session_state.clear()
         request_rerun()
 
-    menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Products/Services", "Rules"])
+    menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Products & Services", "Rules"])
 
     if menu == "Home":
         st.header("Ideas List")
@@ -235,7 +257,7 @@ else:
                     if st.button("Delete", key=f"del_{msg.id}"):
                         chat_ref.document(msg.id).delete()
                         st.success("Message deleted!")
-                        st.experimental_rerun()
+                        request_rerun()
 
             st.markdown("---")
             new_msg = st.text_input("Your message", key=f"chat_input_{selected_post_id}")
@@ -249,63 +271,74 @@ else:
                 st.success("Sent! Scroll to see your message.")
                 request_rerun()
 
-    elif menu == "Products/Services":
-        st.header("Products and Services")
+    elif menu == "Products & Services":
+        st.header("Products & Services")
 
-        user_teams = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
+        user_teams = get_user_teams(st.session_state["user_uid"])
         if not user_teams:
-            st.info("You must join a team first to upload products or services.")
+            st.info("You are not in any team yet! Join a team first.")
         else:
-            tab_prod, tab_serv, tab_view = st.tabs(["Upload Product", "Create Service", "View All"])
+            tab_prod, tab_serv, tab_view = st.tabs(["Upload Product", "Upload Service", "View All"])
 
+            # Upload Product
             with tab_prod:
                 st.subheader("Upload a Product")
                 selected_team = st.selectbox("Select Team", user_teams, format_func=lambda x: x[1], key="prod_team_select")
                 prod_title = st.text_input("Product Title", key="prod_title")
                 prod_desc = st.text_area("Product Description", key="prod_desc")
+                prod_contact = st.text_input("Contact Me Here (email or phone)", key="prod_contact")
+                prod_image = st.file_uploader("Upload Product Image (optional)", type=["png", "jpg", "jpeg"], key="prod_image_uploader")
                 if st.button("Submit Product"):
-                    if prod_title.strip() and prod_desc.strip():
+                    if prod_title.strip() and prod_desc.strip() and prod_contact.strip():
+                        img_b64 = None
+                        if prod_image is not None:
+                            img_bytes = prod_image.read()
+                            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
                         db.collection("products_services").add({
                             "team_id": selected_team[0],
                             "team_title": selected_team[1],
                             "type": "product",
                             "title": prod_title.strip(),
                             "description": prod_desc.strip(),
+                            "contact": prod_contact.strip(),
+                            "image": img_b64,
                             "createdBy": st.session_state["user_uid"],
                             "createdAt": datetime.datetime.utcnow()
                         })
                         st.success("Product uploaded successfully!")
                         request_rerun()
                     else:
-                        st.warning("Please provide both title and description for the product.")
+                        st.warning("Please provide title, description, and contact info for the product.")
 
+            # Upload Service
             with tab_serv:
-                st.subheader("Create a Service (Volunteer Opportunity)")
+                st.subheader("Upload a Service")
                 selected_team_s = st.selectbox("Select Team", user_teams, format_func=lambda x: x[1], key="serv_team_select")
                 serv_title = st.text_input("Service Title", key="serv_title")
                 serv_desc = st.text_area("Service Description", key="serv_desc")
-                if st.button("Create Service"):
-                    if serv_title.strip() and serv_desc.strip():
+                serv_contact = st.text_input("Contact Me Here (email or phone)", key="serv_contact")
+                if st.button("Submit Service"):
+                    if serv_title.strip() and serv_desc.strip() and serv_contact.strip():
                         db.collection("products_services").add({
                             "team_id": selected_team_s[0],
                             "team_title": selected_team_s[1],
                             "type": "service",
                             "title": serv_title.strip(),
                             "description": serv_desc.strip(),
+                            "contact": serv_contact.strip(),
                             "createdBy": st.session_state["user_uid"],
                             "createdAt": datetime.datetime.utcnow(),
                             "volunteers": []
                         })
-                        st.success("Service created successfully!")
+                        st.success("Service uploaded successfully!")
                         request_rerun()
                     else:
-                        st.warning("Please provide both title and description for the service.")
+                        st.warning("Please provide title, description, and contact info for the service.")
 
+            # View All Products & Services
             with tab_view:
-                st.subheader("All Products and Services")
-                all_items = db.collection("products_services").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
-                items = [(doc.id, doc.to_dict()) for doc in all_items]
-
+                st.subheader("All Products & Services")
+                items = get_all_products_services()
                 if not items:
                     st.info("No products or services have been posted yet.")
                 else:
@@ -314,6 +347,18 @@ else:
                         st.markdown(f"**Team:** {item['team_title']}")
                         st.markdown(f"**Description:** {item['description']}")
                         st.markdown(f"**Posted by:** {item['createdBy']}")
+
+                        # Show contact if exists
+                        contact = item.get("contact")
+                        if contact:
+                            st.markdown(f"**Contact:** {contact}")
+
+                        # Show image if exists (only for products)
+                        img_b64 = item.get("image")
+                        if img_b64:
+                            img_bytes = base64.b64decode(img_b64)
+                            st.image(img_bytes, width=300)
+
                         if item["type"] == "service":
                             volunteers = item.get("volunteers", [])
                             st.markdown(f"**Volunteers:** {len(volunteers)}")
@@ -325,8 +370,7 @@ else:
                                     request_rerun()
                             else:
                                 st.info("You are already a volunteer for this service.")
+
                         st.markdown("---")
 
-# Close main div container
 st.markdown('</div>', unsafe_allow_html=True)
-
