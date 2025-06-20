@@ -209,4 +209,5 @@ else:
                     "timestamp": datetime.datetime.utcnow()
                 })
                 st.success("Sent! Scroll to see your message.")
-                st.experimental_rerun()
+                st.session_state["rerun_now"] = True
+                st.stop()
