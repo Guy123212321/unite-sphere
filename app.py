@@ -4,75 +4,79 @@ import requests
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
-
 st.markdown(
     """
     <style>
-    /* Animated neon gradient background for Streamlit app container */
+    /* Dark purple gradient background for Streamlit app container */
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(270deg, #04050a, #060911, #04050a);
-        background-size: 600% 600%;
-        animation: gradientShift 30s ease infinite;
+        background: linear-gradient(135deg, #1a1a2e, #2c003e);
         position: relative;
-        font-family: 'Orbitron', monospace;
-        color: #8affff;  /* neon cyan but slightly darker */
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #d0cde1;
         min-height: 100vh;
         padding: 30px 60px;
         overflow-x: hidden;
     }
 
-    /* Subtle grid overlay on the app container */
+    /* Subtle grid overlay - very faint */
     [data-testid="stAppViewContainer"]::before {
         content: "";
         position: absolute;
         top: 0; left: 0; right: 0; bottom: 0;
         background-image:
-            linear-gradient(rgba(0,255,231,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,255,231,0.03) 1px, transparent 1px);
+            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
         background-size: 40px 40px;
         pointer-events: none;
         z-index: -1;
         mix-blend-mode: screen;
     }
 
-    /* Gradient animation keyframes */
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-
-    /* Optionally style headers to be more neon */
+    /* Headers styling */
     h1, h2, h3, h4 {
-        color: #70ffff;
-        text-shadow:
-            0 0 5px #00fff7,
-            0 0 10px #00fff7,
-            0 0 20px #00fff7,
-            0 0 40px #00fff7;
+        color: #bdb6e7;
+        font-weight: 600;
+        margin-bottom: 1rem;
     }
 
-    /* Neon style for buttons */
+    /* Button styling */
     button {
-        background-color: #008f8f !important;
-        color: #e0ffff !important;
-        border: 1px solid #00e5e5 !important;
-        box-shadow:
-            0 0 5px #00e5e5,
-            0 0 10px #00e5e5;
-        transition: all 0.3s ease;
+        background-color: #4b3b6b !important;
+        color: #e0d9f7 !important;
+        border: 1px solid #796eb0 !important;
+        border-radius: 6px;
+        padding: 6px 14px;
+        box-shadow: 0 2px 6px rgba(75, 59, 107, 0.5);
+        transition: background-color 0.3s ease, color 0.3s ease;
+        cursor: pointer;
     }
     button:hover {
-        background-color: #00e5e5 !important;
-        color: #001010 !important;
-        box-shadow:
-            0 0 10px #00fff7,
-            0 0 20px #00fff7;
+        background-color: #796eb0 !important;
+        color: #f0ecff !important;
+        box-shadow: 0 4px 12px rgba(121, 110, 176, 0.8);
+    }
+
+    /* Inputs and textareas */
+    input[type="text"], input[type="email"], input[type="password"], textarea {
+        background-color: #2c243c !important;
+        color: #cfccea !important;
+        border: 1px solid #796eb0 !important;
+        border-radius: 6px;
+        padding: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 1rem;
+    }
+    input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, textarea:focus {
+        border-color: #bdb6e7 !important;
+        outline: none;
+        box-shadow: 0 0 6px #bdb6e7;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
+
 
 
 # Initialize session flags only once
