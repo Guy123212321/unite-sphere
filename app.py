@@ -109,9 +109,10 @@ def join_team(post_id, user_uid):
             data["team"].append(user_uid)
             ref.update({"team": data["team"]})
 
-
+# Start main app UI container div
 st.markdown('<div class="main">', unsafe_allow_html=True)
-# UI
+
+# UI Title
 st.title("UniteSphere - Build Teams on Ideas")
 
 if "id_token" not in st.session_state:
@@ -160,7 +161,7 @@ else:
         st.session_state["rerun_now"] = True
         st.stop()  # stop before rerun
 
-    menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Rules"])
+    menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Products/Services", "Rules"])
 
     if menu == "Home":
         st.header("Ideas List")
@@ -211,7 +212,7 @@ else:
         """)
 
     elif menu == "Team Chat":
-        st.header("Team Chat 💬")
+        st.header("Team Chat")
         user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
 
         if not user_posts:
@@ -244,6 +245,91 @@ else:
                     "message": new_msg.strip(),
                     "timestamp": datetime.datetime.utcnow()
                 })
+                st.success("Sent! Scroll to see your message.")
+                st.session_state["rerun_now"] = True
+                st.stop()
+
+    elif menu == "Products/Services":
+        st.header("Products and Services")
+
+        user_teams = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
+        if not user_teams:
+            st.info("You must join a team first to upload products or services.")
+        else:
+            tab_prod, tab_serv, tab_view = st.tabs(["Upload Product", "Create Service", "View All"])
+
+            with tab_prod:
+                st.subheader("Upload a Product")
+                selected_team = st.selectbox("Select Team", user_teams, format_func=lambda x: x[1], key="prod_team_select")
+                prod_title = st.text_input("Product Title", key="prod_title")
+                prod_desc = st.text_area("Product Description", key="prod_desc")
+                if st.button("Submit Product"):
+                    if prod_title.strip() and prod_desc.strip():
+                        db.collection("products_services").add({
+                            "team_id": selected_team[0],
+                            "team_title": selected_team[1],
+                            "type": "product",
+                            "title": prod_title.strip(),
+                            "description": prod_desc.strip(),
+                            "createdBy": st.session_state["user_uid"],
+                            "createdAt": datetime.datetime.utcnow()
+                        })
+                        st.success("Product uploaded successfully!")
+                        st.experimental_rerun()
+                    else:
+                        st.warning("Please provide both title and description for the product.")
+
+            with tab_serv:
+                st.subheader("Create a Service (Volunteer Opportunity)")
+                selected_team_s = st.selectbox("Select Team", user_teams, format_func=lambda x: x[1], key="serv_team_select")
+                serv_title = st.text_input("Service Title", key="serv_title")
+                serv_desc = st.text_area("Service Description", key="serv_desc")
+                if st.button("Create Service"):
+                    if serv_title.strip() and serv_desc.strip():
+                        db.collection("products_services").add({
+                            "team_id": selected_team_s[0],
+                            "team_title": selected_team_s[1],
+                            "type": "service",
+                            "title": serv_title.strip(),
+                            "description": serv_desc.strip(),
+                            "createdBy": st.session_state["user_uid"],
+                            "createdAt": datetime.datetime.utcnow(),
+                            "volunteers": []
+                        })
+                        st.success("Service created successfully!")
+                        st.experimental_rerun()
+                    else:
+                        st.warning("Please provide both title and description for the service.")
+
+            with tab_view:
+                st.subheader("All Products and Services")
+                all_items = db.collection("products_services").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+                items = [(doc.id, doc.to_dict()) for doc in all_items]
+
+                if not items:
+                    st.info("No products or services have been posted yet.")
+                else:
+                    for item_id, item in items:
+                        st.markdown(f"### {item['title']} ({item['type'].capitalize()})")
+                        st.markdown(f"**Team:** {item['team_title']}")
+                        st.markdown(f"**Description:** {item['description']}")
+                        st.markdown(f"**Posted by:** {item['createdBy']}")
+                        if item["type"] == "service":
+                            volunteers = item.get("volunteers", [])
+                            st.markdown(f"**Volunteers:** {len(volunteers)}")
+                            if st.session_state["user_uid"] not in volunteers:
+                                if st.button("Join as Volunteer", key=f"join_vol_{item_id}"):
+                                    volunteers.append(st.session_state["user_uid"])
+                                    db.collection("products_services").document(item_id).update({"volunteers": volunteers})
+                                    st.success("You've joined this service as a volunteer!")
+                                    st.experimental_rerun()
+                            else:
+                                st.info("You are already a volunteer for this service.")
+                        st.markdown("---")
+
+# Close main div container
+st.markdown('</div>', unsafe_allow_html=True)
+
                 st.success("Sent! Scroll to see your message.")
                 st.session_state["rerun_now"] = True
                 st.stop()
