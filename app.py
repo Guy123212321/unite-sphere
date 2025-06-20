@@ -403,7 +403,9 @@ def post_chat_message(chat_ref, message, sender):
         st.error(f"Failed to send message: {e}")
         return False
 
-# UI starts
+# ... (keep all your Firebase setup and helper functions above this point)
+
+# UI starts - REPLACE EVERYTHING FROM HERE DOWN
 st.markdown('<div class="main">', unsafe_allow_html=True)
 
 # Initialize session state for current page
@@ -418,14 +420,22 @@ if "id_token" in st.session_state:
     # Check admin status
     is_admin = st.session_state.get("email") in ADMINS
     
-    # Menu options
-    menu_options = ["Project Ideas", "Submit Idea", "Team Chat", "Products & Services", "Rules", "Stats"]
-    if is_admin:
-        menu_options.append("Admin")
+    # Menu options with descriptions
+    menu_options = [
+        ("Project Ideas", "💡 Browse and join exciting projects"),
+        ("Submit Idea", "✨ Pitch your project idea and build a team"),
+        ("Team Chat", "💬 Collaborate with your team in real-time"),
+        ("Products & Services", "🛒 Showcase and discover completed work"),
+        ("Rules", "📜 Community guidelines for everyone"),
+        ("Stats", "📊 Platform statistics and insights")
+    ]
     
-    # Create sidebar menu
-    for page in menu_options:
-        if st.sidebar.button(page, use_container_width=True, key=f"menu_{page}"):
+    if is_admin:
+        menu_options.append(("Admin", "🔒 Administrative tools and controls"))
+    
+    # Create sidebar menu with descriptions
+    for page, description in menu_options:
+        if st.sidebar.button(f"**{page}**\n{description}", use_container_width=True, key=f"menu_{page}"):
             st.session_state.current_page = page
     
     # Logout button at bottom
@@ -437,45 +447,42 @@ if "id_token" in st.session_state:
 
 # Home Page - Show login/signup when not logged in
 if "id_token" not in st.session_state:
-    # Logo and title
+    # Main menu with descriptions
     st.markdown("""
-    <div class="home-container">
-        <div class="logo-container">
-            <!-- REPLACE THIS PATH WITH YOUR ACTUAL LOGO PATH -->
-            <!-- Example: <img src="https://example.com/logo.png" width="200"> -->
-            <div style="font-size: 4rem; color: #0d6efd;">🤝</div>
-        </div>
-        <h1 style="color: #0d6efd; text-align: center;">UniteSphere</h1>
-        <h2 style="text-align: center;">Team Collaboration Platform</h2>
-        <p style="text-align: center; font-size: 1.2rem; max-width: 800px; margin: 0 auto;">
-            Where developers, designers, and innovators come together to bring ideas to life. 
-            Join teams, collaborate on projects, and turn your visions into reality.
+    <div class="home-container" style="text-align: center;">
+        <h1 style="color: #0d6efd;">UniteSphere</h1>
+        <h3>Team Collaboration Platform</h3>
+        <p style="font-size: 1.2rem; max-width: 800px; margin: 20px auto;">
+            Where developers, designers, and innovators come together to bring ideas to life
         </p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Feature highlights
-    st.markdown("""
-    <div class="feature-container">
-        <div class="home-feature">
-            <div class="home-feature-icon">🚀</div>
-            <h3>Start Projects</h3>
-            <p>Share your ideas and build teams</p>
-        </div>
-        <div class="home-feature">
-            <div class="home-feature-icon">🤝</div>
-            <h3>Join Teams</h3>
-            <p>Collaborate with like-minded people</p>
-        </div>
-        <div class="home-feature">
-            <div class="home-feature-icon">💡</div>
-            <h3>Showcase Work</h3>
-            <p>Share your products and services</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Feature grid with descriptions
+    features = [
+        {"icon": "💡", "title": "Project Ideas", "desc": "Browse and join exciting projects"},
+        {"icon": "✨", "title": "Submit Idea", "desc": "Pitch your project and build a team"},
+        {"icon": "💬", "title": "Team Chat", "desc": "Collaborate in real-time with your team"},
+        {"icon": "🛒", "title": "Marketplace", "desc": "Showcase and discover completed work"},
+        {"icon": "📜", "title": "Community Rules", "desc": "Guidelines for a productive environment"},
+        {"icon": "📊", "title": "Platform Stats", "desc": "See how our community is growing"}
+    ]
+    
+    # Create 3 columns
+    cols = st.columns(3)
+    
+    for i, feature in enumerate(features):
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div class="home-feature" style="height: 200px;">
+                <div class="home-feature-icon">{feature['icon']}</div>
+                <h3>{feature['title']}</h3>
+                <p>{feature['desc']}</p>
+            </div>
+            """, unsafe_allow_html=True)
     
     # Login/Signup Section
+    st.markdown("---")
     st.subheader("Get Started")
     tab1, tab2 = st.tabs(["Login", "Sign Up"])
 
