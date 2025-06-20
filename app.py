@@ -4,100 +4,125 @@ import requests
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
+
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap');
 
-    /* Main background & font */
+    /* Main container */
     .main {
-        background: #0d0f14; /* Very dark, almost black */
+        background: linear-gradient(270deg, #05070a, #080b11, #05070a);
+        background-size: 600% 600%;
+        animation: gradientShift 30s ease infinite;
+        position: relative;
+        z-index: 0;
         font-family: 'Orbitron', monospace;
-        color: #e0f7fa; /* Light cyan for text */
+        color: #a0ffff;
         padding: 30px 60px;
         min-height: 100vh;
     }
 
-    /* Headers with subtle neon glow */
+    /* Faint grid overlay */
+    .main::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image:
+            linear-gradient(rgba(0,255,231,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,255,231,0.04) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: -1;
+        mix-blend-mode: screen;
+    }
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* Headers with neon glow, slightly darker */
     h1, h2, h3 {
-        color: #00ffe7; /* Neon cyan */
-        text-shadow: 0 0 8px #00ffe7, 0 0 20px #00ffe7;
+        color: #00b9a5;
+        text-shadow: 0 0 6px #00b9a5, 0 0 14px #00b9a5;
         font-weight: 700;
     }
 
-    /* Buttons with neon gradient and glow */
+    /* Buttons neon gradient - darker */
     div.stButton > button {
-        background: linear-gradient(45deg, #00ffb7, #00d2ff);
-        color: #0d0f14;
+        background: linear-gradient(45deg, #00c3a0, #009688);
+        color: #0a0d10;
         font-weight: 700;
         border-radius: 14px;
         padding: 14px 36px;
         font-size: 18px;
-        box-shadow: 0 0 12px #00ffb7, 0 0 24px #00d2ff;
+        box-shadow: 0 0 10px #00c3a0, 0 0 18px #009688;
         transition: background 0.3s ease, box-shadow 0.3s ease;
     }
     div.stButton > button:hover {
-        background: linear-gradient(45deg, #00d2ff, #00ffb7);
-        box-shadow: 0 0 18px #00d2ff, 0 0 30px #00ffb7;
+        background: linear-gradient(45deg, #009688, #00c3a0);
+        box-shadow: 0 0 14px #009688, 0 0 24px #00c3a0;
         cursor: pointer;
     }
 
-    /* Inputs with dark backgrounds and neon borders */
+    /* Inputs with dark backgrounds and neon borders - darker */
     input[type="text"], input[type="password"], textarea {
-        border: 2px solid #00d2ff !important;
+        border: 2px solid #009688 !important;
         border-radius: 14px !important;
         padding: 14px !important;
         font-size: 18px !important;
         font-family: 'Orbitron', monospace !important;
-        background: #121619;
-        color: #e0f7fa;
-        box-shadow: 0 0 10px #00d2ff;
+        background: #080b11;
+        color: #a0ffff;
+        box-shadow: 0 0 8px #009688;
         transition: border-color 0.3s ease, background 0.3s ease;
     }
     input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
-        border-color: #00ffe7 !important;
-        background: #1a1f27 !important;
+        border-color: #00b9a5 !important;
+        background: #0b121a !important;
         outline: none !important;
-        box-shadow: 0 0 18px #00ffe7 !important;
+        box-shadow: 0 0 14px #00b9a5 !important;
     }
 
     /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background: #101317;
-        color: #00ffe7;
+        background: #05070a;
+        color: #00b9a5;
         font-family: 'Orbitron', monospace;
-        box-shadow: inset 0 0 20px #00d2ff;
+        box-shadow: inset 0 0 16px #009688;
     }
     [data-testid="stSidebar"] .css-1d391kg, 
     [data-testid="stSidebar"] .css-1v3fvcr {
-        color: #00ffe7;
+        color: #00b9a5;
     }
 
     /* Scrollbars */
     .stContainer > div {
         scrollbar-width: thin;
-        scrollbar-color: #00d2ff #101317;
+        scrollbar-color: #009688 #05070a;
     }
     .stContainer > div::-webkit-scrollbar {
         width: 8px;
     }
     .stContainer > div::-webkit-scrollbar-track {
-        background: #101317;
+        background: #05070a;
     }
     .stContainer > div::-webkit-scrollbar-thumb {
-        background-color: #00d2ff;
+        background-color: #009688;
         border-radius: 6px;
     }
 
     /* Links styling */
     a, a:visited {
-        color: #00ffe7;
+        color: #00b9a5;
         font-weight: 600;
         text-decoration: none;
     }
     a:hover {
         text-decoration: underline;
-        color: #00d2ff;
+        color: #008a7a;
     }
     </style>
     """,
@@ -173,6 +198,8 @@ def join_team(post_id, user_uid):
             data["team"].append(user_uid)
             ref.update({"team": data["team"]})
 
+
+st.markdown('<div class="main">', unsafe_allow_html=True)
 # UI
 st.title("UniteSphere - Build Teams on Ideas")
 
@@ -309,3 +336,4 @@ else:
                 st.success("Sent! Scroll to see your message.")
                 st.session_state["rerun_now"] = True
                 st.stop()
+st.markdown('</div>', unsafe_allow_html=True)                
