@@ -166,12 +166,13 @@ else:
         if not user_posts:
             st.info("You're not in any team yet! Join a team to chat.")
         else:
-            selected_post_id, selected_title = st.selectbox(
+            selected = st.selectbox(
                 "Choose a team to chat in:",
                 user_posts,
                 format_func=lambda x: x[1],
                 key="chat_team_select"
             )
+            selected_post_id, selected_title = selected
 
             st.subheader(f"Chat Room for: {selected_title}")
             chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
@@ -182,9 +183,7 @@ else:
                     msg_data = msg.to_dict()
                     sender = msg_data.get("sender", "Unknown")
                     content = msg_data.get("message", "")
-                    timestamp = msg_data.get("timestamp", datetime.datetime.utcnow())
-                    time_str = timestamp.strftime("%Y-%m-%d %H:%M")
-                    st.markdown(f"**{sender}**: {content}  \n*{time_str}*")
+                    st.markdown(f"**{sender}**: {content}")
 
             st.markdown("---")
             new_msg = st.text_input("Your message", key=f"chat_input_{selected_post_id}")
