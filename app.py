@@ -599,51 +599,117 @@ else:
         st.header("Administration Panel")
         st.warning("You have administrative privileges on this platform")
         
-        st.subheader("All Project Ideas")
-        all_ideas = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
-        idea_count = 0
+        # Create tabs for different admin functions
+        admin_tabs = st.tabs(["Project Ideas", "Products & Services", "User Management"])
         
-        for idea in all_ideas:
-            idea_count += 1
-            data = idea.to_dict()
-            with st.container():
-                st.markdown(f"**{data['title']}**")
-                st.caption(f"Created by: {data['createdBy']} | Team members: {len(data.get('team', []))}")
-                st.write(data["description"])
+        # Tab 1: Project Ideas Management
+        with admin_tabs[0]:
+            st.subheader("All Project Ideas")
+            all_ideas = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+            idea_count = 0
+            
+            for idea in all_ideas:
+                idea_count += 1
+                data = idea.to_dict()
+                with st.container():
+                    st.markdown(f"**{data['title']}**")
+                    st.caption(f"Created by: {data['createdBy']} | Team members: {len(data.get('team', []))}")
+                    st.write(data["description"])
+                    
+                    # Delete button for each idea
+                    if st.button("Delete Idea", key=f"del_idea_{idea.id}", type="secondary"):
+                        db.collection("posts").document(idea.id).delete()
+                        st.success("Idea deleted")
+                        request_rerun()
+                    
+                    st.markdown("---")
+            
+            if idea_count == 0:
+                st.info("No project ideas found")
                 
-                if st.button("Delete Idea", key=f"del_idea_{idea.id}", type="secondary"):
-                    db.collection("posts").document(idea.id).delete()
-                    st.success("Idea deleted")
-                    st.stop()
-                
-                st.markdown("---")
+            # Upload new idea as admin
+            st.subheader("Create New Idea (Admin)")
+            admin_title = st.text_input("Idea Title", key="admin_title")
+            admin_desc = st.text_area("Description", key="admin_desc")
+            if st.button("Post Idea as Admin", key="admin_post_idea"):
+                if admin_title and admin_desc:
+                    post_idea(admin_title, admin_desc, "admin")
+                    st.success("Admin idea posted")
+                    request_rerun()
         
-        if idea_count == 0:
-            st.info("No project ideas found")
-        
-        st.subheader("All Products & Services")
-        all_items = db.collection("products_services").order_by("timestamp", direction=firestore.Query.DESCENDING).stream()
-        item_count = 0
-        
-        for item in all_items:
-            item_count += 1
-            data = item.to_dict()
-            with st.container():
-                st.markdown(f"**{data['title']}**")
-                st.caption(f"Type: {data['type']} | Created by: {data['createdBy']}")
-                st.write(data["description"])
+        # Tab 2: Products & Services Management
+        with admin_tabs[1]:
+            st.subheader("All Products & Services")
+            all_items = db.collection("products_services").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+            item_count = 0
+            
+            # Filter options
+            filter_type = st.selectbox("Filter by Type", ["All", "Products", "Services"])
+            
+            for item in all_items:
+                data = item.to_dict()
                 
-                if data.get("image_url"):
-                    st.image(data["image_url"], width=200)
+                # Apply filter
+                if filter_type == "Products" and data["type"] != "product":
+                    continue
+                if filter_type == "Services" and data["type"] != "service":
+                    continue
+                    
+                item_count += 1
+                with st.container():
+                    st.markdown(f"**{data['title']}**")
+                    st.caption(f"Type: {data['type']} | Created by: {data['createdBy']}")
+                    st.write(data["description"])
+                    
+                    if data.get("image_url"):
+                        st.image(data["image_url"], width=200)
+                    
+                    # Delete button for each item
+                    if st.button("Delete Item", key=f"del_item_{item.id}", type="secondary"):
+                        db.collection("products_services").document(item.id).delete()
+                        st.success("Item deleted")
+                        request_rerun()
+                    
+                    st.markdown("---")
+            
+            if item_count == 0:
+                st.info("No products or services found")
                 
-                if st.button("Delete Item", key=f"del_item_{item.id}", type="secondary"):
-                    db.collection("products_services").document(item.id).delete()
-                    st.success("Item deleted")
-                    st.stop()
-                
-                st.markdown("---")
+            # Upload new product/service as admin
+            st.subheader("Create New Item (Admin)")
+            admin_item_type = st.selectbox("Item Type", ["product", "service"], key="admin_item_type")
+            admin_item_title = st.text_input("Item Name", key="admin_item_title")
+            admin_item_desc = st.text_area("Description", key="admin_item_desc")
+            admin_item_contact = st.text_input("Contact Information", key="admin_item_contact")
+            admin_item_deadline = st.date_input("Target Date", min_value=datetime.date.today())
+            admin_item_image = st.file_uploader("Item Image (optional)", type=["png", "jpg", "jpeg"])
+            
+            if st.button("Submit as Admin", key="admin_submit_item"):
+                if admin_item_title and admin_item_desc and admin_item_contact:
+                    image_url = upload_image_to_firebase(admin_item_image) if admin_item_image else None
+                    db.collection("products_services").add({
+                        "team_id": "admin",
+                        "team_title": "Admin Team",
+                        "type": admin_item_type,
+                        "title": admin_item_title,
+                        "description": admin_item_desc,
+                        "contact": admin_item_contact,
+                        "deadline": str(admin_item_deadline),
+                        "image_url": image_url,
+                        "createdBy": "admin",
+                        "createdAt": datetime.datetime.utcnow(),
+                        "volunteers": []
+                    })
+                    st.success("Item submitted as admin")
+                    request_rerun()
         
-        if item_count == 0:
-            st.info("No products or services found")
+        # Tab 3: User Management (Placeholder)
+        with admin_tabs[2]:
+            st.subheader("User Management")
+            st.info("This feature is under development")
+            st.write("Future functionality will include:")
+            st.write("- Viewing all registered users")
+            st.write("- Managing user roles and permissions")
+            st.write("- Suspending or deleting user accounts")
 
 st.markdown('</div>', unsafe_allow_html=True)
