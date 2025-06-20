@@ -6,7 +6,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # Set page layout
-st.set_page_config(page_title="Unite Sphere", layout="centered")
+st.set_page_config(page_title="UniteSphere", layout="centered")
 
 # Initialize session flags only once
 if "rerun_now" not in st.session_state:
@@ -163,7 +163,7 @@ st.markdown(
 )
 
 # UI
-st.title("Unite Sphere - Build Teams on Ideas")
+st.title("UniteSphere - Build Teams on Ideas")
 
 if "id_token" not in st.session_state:
     st.subheader("Login or Sign Up")
