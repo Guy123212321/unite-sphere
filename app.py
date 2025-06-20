@@ -187,6 +187,7 @@ st.markdown(
         padding: 30px;
         margin: 20px 0;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        text-align: center;
     }
     .feature-container {
         display: flex;
@@ -206,6 +207,11 @@ st.markdown(
     .stTabs [aria-selected="true"] {
         background-color: #0d6efd !important;
         color: white !important;
+    }
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
     }
     </style>
     """,
@@ -402,7 +408,7 @@ st.markdown('<div class="main">', unsafe_allow_html=True)
 
 # Initialize session state for current page
 if "current_page" not in st.session_state:
-    st.session_state.current_page = "Home"
+    st.session_state.current_page = "Project Ideas"
 
 # Show sidebar only if logged in
 if "id_token" in st.session_state:
@@ -413,7 +419,7 @@ if "id_token" in st.session_state:
     is_admin = st.session_state.get("email") in ADMINS
     
     # Menu options
-    menu_options = ["Home", "Project Ideas", "Submit Idea", "Team Chat", "Products & Services", "Rules", "Stats"]
+    menu_options = ["Project Ideas", "Submit Idea", "Team Chat", "Products & Services", "Rules", "Stats"]
     if is_admin:
         menu_options.append("Admin")
     
@@ -427,77 +433,86 @@ if "id_token" in st.session_state:
     st.sidebar.write(f"Logged in as: {st.session_state['email']}")
     if st.sidebar.button("Logout", use_container_width=True, key="logout_button"):
         st.session_state.clear()
-        st.rerun()
+        st.experimental_rerun()
 
-# Home Page - Show when not logged in or when Home is selected
-if "id_token" not in st.session_state or st.session_state.current_page == "Home":
-    st.title("UniteSphere - Team Collaboration Platform")
+# Home Page - Show login/signup when not logged in
+if "id_token" not in st.session_state:
+    # Logo and title
     st.markdown("""
     <div class="home-container">
-        <h2 style="color: #0d6efd; text-align: center;">Collaborate • Create • Innovate</h2>
-        <p style="text-align: center; font-size: 1.2rem;">
-            UniteSphere is a platform where developers, designers, and innovators come together to bring ideas to life. 
+        <div class="logo-container">
+            <!-- REPLACE THIS PATH WITH YOUR ACTUAL LOGO PATH -->
+            <!-- Example: <img src="https://example.com/logo.png" width="200"> -->
+            <div style="font-size: 4rem; color: #0d6efd;">🤝</div>
+        </div>
+        <h1 style="color: #0d6efd; text-align: center;">UniteSphere</h1>
+        <h2 style="text-align: center;">Team Collaboration Platform</h2>
+        <p style="text-align: center; font-size: 1.2rem; max-width: 800px; margin: 0 auto;">
+            Where developers, designers, and innovators come together to bring ideas to life. 
             Join teams, collaborate on projects, and turn your visions into reality.
         </p>
-        <div class="feature-container">
-            <div class="home-feature">
-                <div class="home-feature-icon">🚀</div>
-                <h3>Start Projects</h3>
-                <p>Share your ideas and build teams</p>
-            </div>
-            <div class="home-feature">
-                <div class="home-feature-icon">🤝</div>
-                <h3>Join Teams</h3>
-                <p>Collaborate with like-minded people</p>
-            </div>
-            <div class="home-feature">
-                <div class="home-feature-icon">💡</div>
-                <h3>Showcase Work</h3>
-                <p>Share your products and services</p>
-            </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Feature highlights
+    st.markdown("""
+    <div class="feature-container">
+        <div class="home-feature">
+            <div class="home-feature-icon">🚀</div>
+            <h3>Start Projects</h3>
+            <p>Share your ideas and build teams</p>
+        </div>
+        <div class="home-feature">
+            <div class="home-feature-icon">🤝</div>
+            <h3>Join Teams</h3>
+            <p>Collaborate with like-minded people</p>
+        </div>
+        <div class="home-feature">
+            <div class="home-feature-icon">💡</div>
+            <h3>Showcase Work</h3>
+            <p>Share your products and services</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Show login/signup if not logged in
-    if "id_token" not in st.session_state:
-        st.subheader("Get Started")
-        tab1, tab2 = st.tabs(["Login", "Sign Up"])
+    # Login/Signup Section
+    st.subheader("Get Started")
+    tab1, tab2 = st.tabs(["Login", "Sign Up"])
 
-        with tab1:
-            email = st.text_input("Email", key="login_email")
-            password = st.text_input("Password", type="password", key="login_password")
-            if st.button("Login", use_container_width=True, key="login_button"):
-                if not email or not password:
-                    st.warning("Please enter your email and password")
-                else:
-                    res = login(email, password)
-                    if "idToken" in res:
-                        if check_email_verified(res["idToken"]):
-                            st.session_state["id_token"] = res["idToken"]
-                            st.session_state["email"] = email
-                            st.session_state["user_uid"] = res["localId"]
-                            st.session_state["current_page"] = "Home"
-                            st.success("Login successful")
-                            st.experimental_rerun()
-                        else:
-                            st.warning("Please verify your email first")
+    with tab1:
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_password")
+        if st.button("Login", use_container_width=True, key="login_button"):
+            if not email or not password:
+                st.warning("Please enter your email and password")
+            else:
+                res = login(email, password)
+                if "idToken" in res:
+                    if check_email_verified(res["idToken"]):
+                        st.session_state["id_token"] = res["idToken"]
+                        st.session_state["email"] = email
+                        st.session_state["user_uid"] = res["localId"]
+                        st.session_state["current_page"] = "Project Ideas"
+                        st.success("Login successful")
+                        st.experimental_rerun()
                     else:
-                        st.error("Login failed. Please check your credentials")
+                        st.warning("Please verify your email first")
+                else:
+                    st.error("Login failed. Please check your credentials")
 
-        with tab2:
-            email = st.text_input("Email", key="signup_email")
-            password = st.text_input("Password", type="password", key="signup_password")
-            if st.button("Sign Up", use_container_width=True, key="signup_button"):
-                if not email or not password:
-                    st.warning("Please enter both email and password")
+    with tab2:
+        email = st.text_input("Email", key="signup_email")
+        password = st.text_input("Password", type="password", key="signup_password")
+        if st.button("Sign Up", use_container_width=True, key="signup_button"):
+            if not email or not password:
+                st.warning("Please enter both email and password")
+            else:
+                res = signup(email, password)
+                if "idToken" in res:
+                    send_verification_email(res["idToken"])
+                    st.success("Account created. Please check your email for verification")
                 else:
-                    res = signup(email, password)
-                    if "idToken" in res:
-                        send_verification_email(res["idToken"])
-                        st.success("Account created. Please check your email for verification")
-                    else:
-                        st.error("Sign up failed. Please try again")
+                    st.error("Sign up failed. Please try again")
 
 # Project Ideas Page
 elif st.session_state.current_page == "Project Ideas":
