@@ -8,74 +8,100 @@ from firebase_admin import credentials, firestore
 st.markdown(
     """
     <style>
-    /* Dark purple gradient background for the main app container */
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, #1a1a2e, #2c003e);
-        position: relative;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        color: #d0cde1;
-        min-height: 100vh;
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+
+    /* Background and font */
+    .main {
+        background: linear-gradient(135deg, #2a1a4a, #1e1b2c);
+        font-family: 'Poppins', sans-serif;
+        color: #e0e0e0;
         padding: 30px 60px;
-        overflow-x: hidden;
+        min-height: 100vh;
     }
 
-    /* Subtle faint grid overlay */
-    [data-testid="stAppViewContainer"]::before {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background-image:
-            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-        background-size: 40px 40px;
-        pointer-events: none;
-        z-index: -1;
-        mix-blend-mode: screen;
+    /* Headers */
+    h1, h2, h3 {
+        color: #90caf9; /* Light Blue */
+        font-weight: 700;
+        text-shadow: 1px 1px 4px #0d0d24;
     }
 
-    /* Headers styling */
-    h1, h2, h3, h4 {
-        color: #bdb6e7;
-        font-weight: 600;
-        margin-bottom: 1rem;
+    /* Buttons */
+    div.stButton > button {
+        background: linear-gradient(45deg, #3949ab, #1e88e5);
+        color: #e3f2fd;
+        font-weight: 700;
+        border-radius: 14px;
+        padding: 14px 36px;
+        font-size: 18px;
+        box-shadow: 0 6px 15px rgba(30,136,229,0.7);
+        transition: background 0.3s ease, box-shadow 0.3s ease;
     }
-
-    /* Buttons styling */
-    button {
-        background-color: #4b3b6b !important;
-        color: #e0d9f7 !important;
-        border: 1px solid #796eb0 !important;
-        border-radius: 6px;
-        padding: 6px 14px;
-        box-shadow: 0 2px 6px rgba(75, 59, 107, 0.5);
-        transition: background-color 0.3s ease, color 0.3s ease;
+    div.stButton > button:hover {
+        background: linear-gradient(45deg, #1e88e5, #3949ab);
+        box-shadow: 0 8px 25px rgba(57,73,171,0.9);
         cursor: pointer;
     }
-    button:hover {
-        background-color: #796eb0 !important;
-        color: #f0ecff !important;
-        box-shadow: 0 4px 12px rgba(121, 110, 176, 0.8);
+
+    /* Inputs */
+    input[type="text"], input[type="password"], textarea {
+        border: 2px solid #3949ab !important;
+        border-radius: 14px !important;
+        padding: 14px !important;
+        font-size: 18px !important;
+        font-family: 'Poppins', sans-serif !important;
+        background: #2e2a4a;
+        color: #e0e0e0;
+        box-shadow: 0 4px 14px rgba(57,73,171,0.6);
+        transition: border-color 0.3s ease, background 0.3s ease;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+        border-color: #90caf9 !important;
+        background: #3e3a65 !important;
+        outline: none !important;
+        box-shadow: 0 0 12px #90caf9 !important;
     }
 
-    /* Inputs and textareas keep default background, but styled border and text color */
-    input[type="text"], input[type="email"], input[type="password"], textarea {
-        background-color: unset !important;
-        color: #2c243c !important;  /* darker text for readability on default input bg */
-        border: 1px solid #796eb0 !important;
-        border-radius: 6px;
-        padding: 8px;
-        width: 100%;
-        box-sizing: border-box;
-        margin-bottom: 1rem;
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #283593, #1a237e);
+        color: #c5cae9;
+        font-family: 'Poppins', sans-serif;
     }
-    input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, textarea:focus {
-        border-color: #bdb6e7 !important;
-        outline: none;
-        box-shadow: 0 0 6px #bdb6e7;
+    [data-testid="stSidebar"] .css-1d391kg, 
+    [data-testid="stSidebar"] .css-1v3fvcr {
+        color: #c5cae9;
+    }
+
+    /* Scrollbars */
+    .stContainer > div {
+        scrollbar-width: thin;
+        scrollbar-color: #3949ab #1a237e;
+    }
+    .stContainer > div::-webkit-scrollbar {
+        width: 8px;
+    }
+    .stContainer > div::-webkit-scrollbar-track {
+        background: #1a237e;
+    }
+    .stContainer > div::-webkit-scrollbar-thumb {
+        background-color: #3949ab;
+        border-radius: 6px;
+    }
+
+    /* Links */
+    a, a:visited {
+        color: #82b1ff;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    a:hover {
+        text-decoration: underline;
+        color: #448aff;
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 
