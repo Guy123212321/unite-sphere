@@ -645,7 +645,7 @@ else:
                     filter_type = st.selectbox("Filter by Type", ["All", "Products", "Services"], key="marketplace_filter")
                     
                     # Display items
-                    for item_id, item in items:
+                    for idx, (item_id, item) in enumerate(items):
                         if filter_type == "Products" and item["type"] != "product":
                             continue
                         if filter_type == "Services" and item["type"] != "service":
@@ -678,7 +678,7 @@ else:
                                 volunteers = item.get("volunteers", [])
                                 st.write(f"**Volunteers**: {len(volunteers)}")
                                 if st.session_state["user_uid"] not in volunteers:
-                                    if st.button("Join as Volunteer", key=f"join_vol_{item_id}"):
+                                    if st.button("Join as Volunteer", key=f"join_vol_{item_id}_{idx}"):
                                         volunteers.append(st.session_state["user_uid"])
                                         db.collection("products_services").document(item_id).update({"volunteers": volunteers})
                                         st.success("You're now a volunteer")
@@ -688,7 +688,7 @@ else:
                             
                             # Owner controls
                             if item["createdBy"] == st.session_state["user_uid"]:
-                                if st.button("Delete", key=f"delete_{item_id}", type="secondary"):
+                                if st.button("Delete", key=f"delete_{item_id}_{idx}", type="secondary"):
                                     delete_product(item_id)
                                     st.success("Item deleted")
                                     st.rerun()
@@ -737,7 +737,7 @@ else:
             'Ideas': [5, 12, 8, 15, 20, 25, 30],
             'Products': [2, 5, 7, 10, 12, 15, 18],
             'Services': [1, 3, 5, 8, 10, 12, 15]
-        }, key="activity_chart")
+        })
 
         # Top teams
         st.subheader("Top Teams by Members")
