@@ -127,32 +127,27 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-def request_rerun():
-    st.session_state["rerun_now"] = True
-    st.experimental_rerun()
-
-# Initialize session flags only once
-if "rerun_now" not in st.session_state:
-    st.session_state["rerun_now"] = False
-
 # Firebase setup - make sure it's initialized once
 if not firebase_admin._apps:
-    # Load Firebase Service Account from secrets
-    service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
-    
-    # Parse the JSON string to a dictionary
-    key_dict = json.loads(service_account_json)
-    
-    # Create credentials from the dictionary
-    cred = credentials.Certificate(key_dict)
-    
-    # Get the storage bucket name from project ID
-    bucket_name = f"{key_dict['project_id']}.appspot.com"
-    
-    # Initialize Firebase app with credentials and storage bucket
-    firebase_admin.initialize_app(cred, {
-        'storageBucket': bucket_name
-    })
+    try:
+        # Load Firebase Service Account from secrets
+        service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
+        
+        # Parse the JSON string to a dictionary
+        key_dict = json.loads(service_account_json)
+        
+        # Create credentials from the dictionary
+        cred = credentials.Certificate(key_dict)
+        
+        # Get the storage bucket name from project ID
+        bucket_name = f"{key_dict['project_id']}.appspot.com"
+        
+        # Initialize Firebase app with credentials and storage bucket
+        firebase_admin.initialize_app(cred, {
+            'storageBucket': bucket_name
+        })
+    except Exception as e:
+        st.error(f"Firebase initialization failed: {e}")
 
 # Set up Firestore client and API key
 db = firestore.client()
@@ -297,6 +292,19 @@ def mark_milestone_complete(post_id, milestone_index):
             milestones[milestone_index]["completed"] = True
             ref.update({"milestones": milestones})
 
+# Simplified chat system
+def post_chat_message(chat_ref, message, sender):
+    try:
+        chat_ref.add({
+            "sender": sender,
+            "message": message.strip(),
+            "timestamp": datetime.datetime.utcnow()
+        })
+        return True
+    except Exception as e:
+        st.error(f"Failed to send message: {e}")
+        return False
+
 # UI starts
 st.markdown('<div class="main">', unsafe_allow_html=True)
 st.title("UniteSphere - Team Collaboration Platform")
@@ -319,7 +327,7 @@ if "id_token" not in st.session_state:
                         st.session_state["email"] = email
                         st.session_state["user_uid"] = res["localId"]
                         st.success("Login successful")
-                        request_rerun()
+                        st.rerun()
                     else:
                         st.warning("Please verify your email first")
                 else:
@@ -343,7 +351,7 @@ else:
     st.sidebar.write(f"Logged in as: {st.session_state['email']}")
     if st.sidebar.button("Logout", use_container_width=True, key="logout_button"):
         st.session_state.clear()
-        request_rerun()
+        st.rerun()
     
     # Check admin status
     is_admin = st.session_state.get("email") in ADMINS
@@ -355,8 +363,11 @@ else:
 
     if menu == "Home":
         st.header("Project Ideas")
-        for post_id, post in get_all_posts():
-            with st.expander(f"{post['title']} - Team: {len(post['team'])} members | Status: {post.get('status', 'Active')}"):
+        posts = get_all_posts()
+        if not posts:
+            st.info("No project ideas found")
+        for post_id, post in posts:
+            with st.expander(f"{post['title']} - Team: {len(post['team'])} members | Status: {post.get('status', 'Active')}", key=f"expander_{post_id}"):
                 st.write(post["description"])
                 st.caption(f"Created by: {post['createdBy']}")
                 
@@ -388,14 +399,14 @@ else:
                                 if st.button(f"Mark Complete", key=f"complete_{post_id}_{i}"):
                                     mark_milestone_complete(post_id, i)
                                     st.success("Milestone marked as complete!")
-                                    request_rerun()
+                                    st.rerun()
                 
                 # Join team button
                 if st.session_state["user_uid"] not in post["team"]:
                     if st.button("Join Team", key=f"join_{post_id}"):
                         join_team(post_id, st.session_state["user_uid"])
                         st.success("You joined this team")
-                        request_rerun()
+                        st.rerun()
                 
                 # Idea owner controls
                 if post["createdBy"] == st.session_state["user_uid"]:
@@ -445,13 +456,13 @@ else:
                     if st.button("Update Project", key=f"update_{post_id}"):
                         update_idea(post_id, new_title, new_desc, str(new_deadline), new_status, new_milestones, new_contact)
                         st.success("Project updated")
-                        request_rerun()
+                        st.rerun()
                     
                     # Delete button
                     if st.button("Delete Project", key=f"delete_{post_id}", type="secondary"):
                         delete_idea(post_id)
                         st.success("Project deleted")
-                        request_rerun()
+                        st.rerun()
 
     elif menu == "Submit Idea":
         st.header("Submit a New Project Idea")
@@ -479,12 +490,12 @@ else:
             if title and description:
                 post_idea(title, description, st.session_state["user_uid"], str(deadline), milestones, contact)
                 st.success("Your project has been posted")
-                request_rerun()
+                st.rerun()
             else:
                 st.warning("Please fill both title and description fields")
 
     elif menu == "Rules":
-        st.header("Community Guidelines", key="rules_header")
+        st.header("Community Guidelines")
         st.markdown("""
         - **Respect others**: Treat all community members with courtesy
         - **No spamming**: Keep content relevant and valuable
@@ -492,20 +503,20 @@ else:
         - **Verify information**: Ensure accuracy before sharing
         - **Protect intellectual property**: Always credit sources
         - **Report issues**: Notify admins of any problems or violations
-        """, key="rules_content")
-        st.info("These guidelines help maintain a productive and respectful environment for everyone.", key="rules_info")
+        """)
+        st.info("These guidelines help maintain a productive and respectful environment for everyone.")
 
     elif menu == "Team Chat":
-        st.header("Team Communication", key="team_chat_header")
+        st.header("Team Communication")
         user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
 
         if not user_posts:
-            st.info("You need to join a team to access team chat", key="no_teams_info")
+            st.info("You need to join a team to access team chat")
         else:
             selected = st.selectbox("Select a team", user_posts, format_func=lambda x: x[1], key="chat_team_select")
             selected_post_id, selected_title = selected
 
-            st.subheader(f"Chat: {selected_title}", key="chat_subheader")
+            st.subheader(f"Chat: {selected_title}")
             chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
 
             # Chat messages display
@@ -541,31 +552,27 @@ else:
             with col1:
                 if st.button("Send", key=f"send_button_{selected_post_id}"):
                     if new_msg.strip():
-                        chat_ref.add({
-                            "sender": st.session_state["email"],
-                            "message": new_msg.strip(),
-                            "timestamp": datetime.datetime.utcnow()
-                        })
-                        st.success("Message sent")
-                        request_rerun()
+                        if post_chat_message(chat_ref, new_msg, st.session_state["email"]):
+                            st.success("Message sent")
+                            st.rerun()
             with col2:
                 if st.button("Clear Chat", type="secondary", key=f"clear_chat_{selected_post_id}"):
                     st.warning("This feature is currently under development")
 
     elif menu == "Products & Services":
-        st.header("Products & Services Marketplace", key="marketplace_header")
-        st.info("This is where completed projects can be offered as products or services", key="marketplace_info")
+        st.header("Products & Services Marketplace")
+        st.info("This is where completed projects can be offered as products or services")
         
         user_teams = get_user_teams(st.session_state["user_uid"])
         
         if not user_teams:
-            st.info("Join or create a team first to post products or services", key="no_teams_marketplace")
+            st.info("Join or create a team first to post products or services")
         else:
             tab_prod, tab_serv, tab_view = st.tabs(["Post Product", "Offer Service", "Browse Marketplace"])
             
             # Product Submission
             with tab_prod:
-                st.subheader("Submit a Completed Product", key="submit_product_header")
+                st.subheader("Submit a Completed Product")
                 selected_team = st.selectbox("Team", user_teams, format_func=lambda x: x[1], key="prod_team_select")
                 prod_title = st.text_input("Product Name", key="prod_title")
                 prod_desc = st.text_area("Product Description", key="prod_desc")
@@ -589,13 +596,13 @@ else:
                             "createdAt": datetime.datetime.utcnow()
                         })
                         st.success("Product submitted to marketplace")
-                        request_rerun()
+                        st.rerun()
                     else:
                         st.warning("Please fill all required fields")
             
             # Service Submission
             with tab_serv:
-                st.subheader("Offer a Service", key="offer_service_header")
+                st.subheader("Offer a Service")
                 selected_team_s = st.selectbox("Team", user_teams, format_func=lambda x: x[1], key="serv_team_select")
                 serv_title = st.text_input("Service Name", key="serv_title")
                 serv_desc = st.text_area("Service Description", key="serv_desc")
@@ -617,23 +624,23 @@ else:
                             "volunteers": []
                         })
                         st.success("Service submitted to marketplace")
-                        request_rerun()
+                        st.rerun()
                     else:
                         st.warning("Please fill all required fields")
             
             # Marketplace
             with tab_view:
-                st.subheader("Marketplace", key="browse_marketplace_header")
+                st.subheader("Marketplace")
                 items = get_all_products_services()
                 
                 if not items:
-                    st.info("No products or services available", key="no_items_info")
+                    st.info("No products or services available")
                 else:
                     # Filter options
                     filter_type = st.selectbox("Filter by Type", ["All", "Products", "Services"], key="marketplace_filter")
                     
                     # Display items
-                    for item_id, item in items:
+                    for idx, (item_id, item) in enumerate(items):
                         if filter_type == "Products" and item["type"] != "product":
                             continue
                         if filter_type == "Services" and item["type"] != "service":
@@ -643,49 +650,49 @@ else:
                             st.markdown(f"<div class='product-card'>", unsafe_allow_html=True)
                             
                             # Header with type badge
-                            st.markdown(f"**{item['title']}**", key=f"item_title_{item_id}")
-                            st.caption(f"Type: {'Product' if item['type'] == 'product' else 'Service'}", key=f"item_type_{item_id}")
+                            st.markdown(f"**{item['title']}**", key=f"item_title_{idx}")
+                            st.caption(f"Type: {'Product' if item['type'] == 'product' else 'Service'}", key=f"item_type_{idx}")
                             
                             # Image display
                             if item.get("image_url"):
-                                st.image(item["image_url"], width=300, key=f"item_image_{item_id}")
+                                st.image(item["image_url"], width=300, key=f"item_image_{idx}")
                             
                             # Details
-                            st.caption(f"By Team: {item['team_title']}", key=f"item_team_{item_id}")
-                            st.write(item["description"], key=f"item_desc_{item_id}")
+                            st.caption(f"By Team: {item['team_title']}", key=f"item_team_{idx}")
+                            st.write(item["description"], key=f"item_desc_{idx}")
                             
                             # Price
                             if item.get("price"):
-                                st.write(f"**Price**: {item['price']}", key=f"item_price_{item_id}")
+                                st.write(f"**Price**: {item['price']}", key=f"item_price_{idx}")
                             
                             # Contact
-                            st.write(f"**Contact**: {item['contact']}", key=f"item_contact_{item_id}")
+                            st.write(f"**Contact**: {item['contact']}", key=f"item_contact_{idx}")
                             
                             # Volunteers for services
                             if item["type"] == "service":
                                 volunteers = item.get("volunteers", [])
-                                st.write(f"**Volunteers**: {len(volunteers)}", key=f"item_volunteers_{item_id}")
+                                st.write(f"**Volunteers**: {len(volunteers)}", key=f"item_volunteers_{idx}")
                                 if st.session_state["user_uid"] not in volunteers:
-                                    if st.button("Join as Volunteer", key=f"join_vol_{item_id}"):
+                                    if st.button("Join as Volunteer", key=f"join_vol_{item_id}_{idx}"):
                                         volunteers.append(st.session_state["user_uid"])
                                         db.collection("products_services").document(item_id).update({"volunteers": volunteers})
                                         st.success("You're now a volunteer")
-                                        request_rerun()
+                                        st.rerun()
                                 else:
-                                    st.info("You're already volunteering for this service", key=f"already_volunteering_{item_id}")
+                                    st.info("You're already volunteering for this service", key=f"already_volunteering_{idx}")
                             
                             # Owner controls
                             if item["createdBy"] == st.session_state["user_uid"]:
-                                if st.button("Delete", key=f"delete_{item_id}", type="secondary"):
+                                if st.button("Delete", key=f"delete_{item_id}_{idx}", type="secondary"):
                                     delete_product(item_id)
                                     st.success("Item deleted")
-                                    request_rerun()
+                                    st.rerun()
                             
                             st.markdown("</div>", unsafe_allow_html=True)
-                            st.markdown("---", key=f"divider_{item_id}")
+                            st.markdown("---", key=f"divider_{idx}")
 
     elif menu == "Stats":
-        st.header("Platform Statistics", key="stats_header")
+        st.header("Platform Statistics")
         total_ideas, total_products, total_services, total_users = count_total_stats()
         
         col1, col2 = st.columns(2)
@@ -720,7 +727,7 @@ else:
             """, unsafe_allow_html=True, key="stats_users")
         
         # Activity chart placeholder
-        st.subheader("Activity Over Time", key="activity_header")
+        st.subheader("Activity Over Time")
         st.line_chart({
             'Ideas': [5, 12, 8, 15, 20, 25, 30],
             'Products': [2, 5, 7, 10, 12, 15, 18],
@@ -728,7 +735,7 @@ else:
         }, key="activity_chart")
 
         # Top teams
-        st.subheader("Top Teams by Members", key="top_teams_header")
+        st.subheader("Top Teams by Members")
         teams_data = defaultdict(int)
         posts = db.collection("posts").stream()
         for post in posts:
@@ -740,15 +747,15 @@ else:
             st.progress(min(members/20, 1.0), text=f"{team}: {members} members", key=f"team_progress_{i}")
     
     elif menu == "Admin":
-        st.header("Administration Panel", key="admin_header")
-        st.warning("You have administrative privileges on this platform", key="admin_warning")
+        st.header("Administration Panel")
+        st.warning("You have administrative privileges on this platform")
         
         # Create tabs for different admin functions
         admin_tabs = st.tabs(["Project Ideas", "Products & Services", "User Management"], key="admin_tabs")
         
         # Tab 1: Project Ideas Management
         with admin_tabs[0]:
-            st.subheader("All Project Ideas", key="admin_ideas_header")
+            st.subheader("All Project Ideas")
             all_ideas = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
             idea_count = 0
             
@@ -767,26 +774,26 @@ else:
                     if st.button("Delete Idea", key=f"del_idea_{idea.id}", type="secondary"):
                         db.collection("posts").document(idea.id).delete()
                         st.success("Idea deleted")
-                        request_rerun()
+                        st.rerun()
                     
                     st.markdown("---", key=f"admin_idea_divider_{idea.id}")
             
             if idea_count == 0:
-                st.info("No project ideas found", key="admin_no_ideas")
+                st.info("No project ideas found")
                 
             # Upload new idea as admin
-            st.subheader("Create New Idea (Admin)", key="admin_create_idea_header")
+            st.subheader("Create New Idea (Admin)")
             admin_title = st.text_input("Idea Title", key="admin_title")
             admin_desc = st.text_area("Description", key="admin_desc")
             if st.button("Post Idea as Admin", key="admin_post_idea_button"):
                 if admin_title and admin_desc:
                     post_idea(admin_title, admin_desc, "admin", str(datetime.date.today()), [], "admin@example.com")
                     st.success("Admin idea posted")
-                    request_rerun()
+                    st.rerun()
         
         # Tab 2: Products & Services Management
         with admin_tabs[1]:
-            st.subheader("All Products & Services", key="admin_items_header")
+            st.subheader("All Products & Services")
             all_items = db.collection("products_services").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
             item_count = 0
             
@@ -815,15 +822,15 @@ else:
                     if st.button("Delete Item", key=f"del_item_{item.id}", type="secondary"):
                         db.collection("products_services").document(item.id).delete()
                         st.success("Item deleted")
-                        request_rerun()
+                        st.rerun()
                     
                     st.markdown("---", key=f"admin_item_divider_{item.id}")
             
             if item_count == 0:
-                st.info("No products or services found", key="admin_no_items")
+                st.info("No products or services found")
                 
             # Upload new product/service as admin
-            st.subheader("Create New Item (Admin)", key="admin_create_item_header")
+            st.subheader("Create New Item (Admin)")
             admin_item_type = st.selectbox("Item Type", ["product", "service"], key="admin_item_type")
             admin_item_title = st.text_input("Item Name", key="admin_item_title")
             admin_item_desc = st.text_area("Description", key="admin_item_desc")
@@ -848,15 +855,15 @@ else:
                         "volunteers": []
                     })
                     st.success("Item submitted as admin")
-                    request_rerun()
+                    st.rerun()
         
         # Tab 3: User Management (Placeholder)
         with admin_tabs[2]:
-            st.subheader("User Management", key="user_management_header")
-            st.info("This feature is under development", key="user_management_info")
-            st.write("Future functionality will include:", key="user_management_features")
-            st.write("- Viewing all registered users", key="user_management_feature1")
-            st.write("- Managing user roles and permissions", key="user_management_feature2")
-            st.write("- Suspending or deleting user accounts", key="user_management_feature3")
+            st.subheader("User Management")
+            st.info("This feature is under development")
+            st.write("Future functionality will include:")
+            st.write("- Viewing all registered users")
+            st.write("- Managing user roles and permissions")
+            st.write("- Suspending or deleting user accounts")
 
 st.markdown('</div>', unsafe_allow_html=True)
