@@ -8,101 +8,103 @@ from firebase_admin import credentials, firestore
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap');
 
-    /* Background and font */
+    /* Main background & font */
     .main {
-        background: linear-gradient(135deg, #2a1a4a, #1e1b2c);
-        font-family: 'Poppins', sans-serif;
-        color: #e0e0e0;
+        background: #0d0f14; /* Very dark, almost black */
+        font-family: 'Orbitron', monospace;
+        color: #e0f7fa; /* Light cyan for text */
         padding: 30px 60px;
         min-height: 100vh;
     }
 
-    /* Headers */
+    /* Headers with subtle neon glow */
     h1, h2, h3 {
-        color: #90caf9; /* Light Blue */
+        color: #00ffe7; /* Neon cyan */
+        text-shadow: 0 0 8px #00ffe7, 0 0 20px #00ffe7;
         font-weight: 700;
-        text-shadow: 1px 1px 4px #0d0d24;
     }
 
-    /* Buttons */
+    /* Buttons with neon gradient and glow */
     div.stButton > button {
-        background: linear-gradient(45deg, #3949ab, #1e88e5);
-        color: #e3f2fd;
+        background: linear-gradient(45deg, #00ffb7, #00d2ff);
+        color: #0d0f14;
         font-weight: 700;
         border-radius: 14px;
         padding: 14px 36px;
         font-size: 18px;
-        box-shadow: 0 6px 15px rgba(30,136,229,0.7);
+        box-shadow: 0 0 12px #00ffb7, 0 0 24px #00d2ff;
         transition: background 0.3s ease, box-shadow 0.3s ease;
     }
     div.stButton > button:hover {
-        background: linear-gradient(45deg, #1e88e5, #3949ab);
-        box-shadow: 0 8px 25px rgba(57,73,171,0.9);
+        background: linear-gradient(45deg, #00d2ff, #00ffb7);
+        box-shadow: 0 0 18px #00d2ff, 0 0 30px #00ffb7;
         cursor: pointer;
     }
 
-    /* Inputs */
+    /* Inputs with dark backgrounds and neon borders */
     input[type="text"], input[type="password"], textarea {
-        border: 2px solid #3949ab !important;
+        border: 2px solid #00d2ff !important;
         border-radius: 14px !important;
         padding: 14px !important;
         font-size: 18px !important;
-        font-family: 'Poppins', sans-serif !important;
-        background: #2e2a4a;
-        color: #e0e0e0;
-        box-shadow: 0 4px 14px rgba(57,73,171,0.6);
+        font-family: 'Orbitron', monospace !important;
+        background: #121619;
+        color: #e0f7fa;
+        box-shadow: 0 0 10px #00d2ff;
         transition: border-color 0.3s ease, background 0.3s ease;
     }
     input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
-        border-color: #90caf9 !important;
-        background: #3e3a65 !important;
+        border-color: #00ffe7 !important;
+        background: #1a1f27 !important;
         outline: none !important;
-        box-shadow: 0 0 12px #90caf9 !important;
+        box-shadow: 0 0 18px #00ffe7 !important;
     }
 
-    /* Sidebar */
+    /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #283593, #1a237e);
-        color: #c5cae9;
-        font-family: 'Poppins', sans-serif;
+        background: #101317;
+        color: #00ffe7;
+        font-family: 'Orbitron', monospace;
+        box-shadow: inset 0 0 20px #00d2ff;
     }
     [data-testid="stSidebar"] .css-1d391kg, 
     [data-testid="stSidebar"] .css-1v3fvcr {
-        color: #c5cae9;
+        color: #00ffe7;
     }
 
     /* Scrollbars */
     .stContainer > div {
         scrollbar-width: thin;
-        scrollbar-color: #3949ab #1a237e;
+        scrollbar-color: #00d2ff #101317;
     }
     .stContainer > div::-webkit-scrollbar {
         width: 8px;
     }
     .stContainer > div::-webkit-scrollbar-track {
-        background: #1a237e;
+        background: #101317;
     }
     .stContainer > div::-webkit-scrollbar-thumb {
-        background-color: #3949ab;
+        background-color: #00d2ff;
         border-radius: 6px;
     }
 
-    /* Links */
+    /* Links styling */
     a, a:visited {
-        color: #82b1ff;
+        color: #00ffe7;
         font-weight: 600;
         text-decoration: none;
     }
     a:hover {
         text-decoration: underline;
-        color: #448aff;
+        color: #00d2ff;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
+
 
 
 # Initialize session flags only once
