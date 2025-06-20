@@ -153,18 +153,21 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred, {
         'storageBucket': bucket_name
     })
-    st.session_state["bucket_name"] = bucket_name
 
 # Set up Firestore client and API key
 db = firestore.client()
 FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 
-# Get storage bucket explicitly using the stored bucket name
-if "bucket_name" in st.session_state:
-    FIREBASE_BUCKET = storage.bucket(st.session_state["bucket_name"])
-else:
-    # Fallback to default bucket if session state doesn't have it
-    FIREBASE_BUCKET = storage.bucket()
+# Get storage bucket explicitly using the bucket name
+try:
+    # Load Firebase Service Account from secrets again to get bucket name
+    service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
+    key_dict = json.loads(service_account_json)
+    bucket_name = f"{key_dict['project_id']}.appspot.com"
+    FIREBASE_BUCKET = storage.bucket(bucket_name)
+except Exception as e:
+    st.error(f"Failed to initialize Firebase Storage: {e}")
+    FIREBASE_BUCKET = None
 
 # Auth functions
 def signup(email, password):
@@ -238,12 +241,15 @@ def get_user_teams(user_uid):
     return [(pid, p["title"]) for pid, p in posts if user_uid in p["team"]]
 
 def upload_image_to_firebase(img_file):
-    if img_file is not None:
-        blob_name = f"products/{uuid.uuid4().hex}_{img_file.name}"
-        blob = FIREBASE_BUCKET.blob(blob_name)
-        blob.upload_from_file(img_file, content_type=img_file.type)
-        blob.make_public()
-        return blob.public_url
+    if img_file is not None and FIREBASE_BUCKET is not None:
+        try:
+            blob_name = f"products/{uuid.uuid4().hex}_{img_file.name}"
+            blob = FIREBASE_BUCKET.blob(blob_name)
+            blob.upload_from_file(img_file, content_type=img_file.type)
+            blob.make_public()
+            return blob.public_url
+        except Exception as e:
+            st.error(f"Failed to upload image: {e}")
     return None
 
 def delete_product(item_id):
