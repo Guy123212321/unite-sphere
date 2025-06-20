@@ -121,7 +121,7 @@ else:
         st.session_state["rerun_now"] = True
         handle_rerun()
 
-    menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Rules"])
+    menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Rules"])
 
     if menu == "Home":
         st.header("Ideas List")
@@ -158,7 +158,7 @@ else:
         - If you join a team, try to stay active
         """)
 
-    if menu == "Home":
+    elif menu == "Team Chat":
         st.header("Team Chat 💬")
 
         user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
