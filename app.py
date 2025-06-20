@@ -164,6 +164,13 @@ except Exception as e:
     st.error(f"Failed to initialize Firebase Storage: {e}")
     FIREBASE_BUCKET = None
 
+# Helper function for safe data access
+def safe_get(data, key, default=None):
+    """Safely get value from dictionary with default fallback"""
+    if data is None:
+        return default
+    return data.get(key, default)
+
 # Auth functions
 def signup(email, password):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
@@ -233,7 +240,7 @@ def get_all_products_services():
 
 def get_user_teams(user_uid):
     posts = get_all_posts()
-    return [(pid, p["title"]) for pid, p in posts if user_uid in p["team"]]
+    return [(pid, safe_get(p, "title", "Untitled Project")) for pid, p in posts if user_uid in safe_get(p, "team", [])]
 
 def upload_image_to_firebase(img_file):
     if img_file is not None and FIREBASE_BUCKET is not None:
@@ -260,9 +267,9 @@ def count_total_stats():
     total_services = 0
     for item in items:
         data = item.to_dict()
-        if data.get("type") == "product":
+        if safe_get(data, "type") == "product":
             total_products += 1
-        elif data.get("type") == "service":
+        elif safe_get(data, "type") == "service":
             total_services += 1
     
     # Count unique users
@@ -270,8 +277,8 @@ def count_total_stats():
     posts = db.collection("posts").stream()
     for post in posts:
         data = post.to_dict()
-        user_set.add(data["createdBy"])
-        for member in data.get("team", []):
+        user_set.add(safe_get(data, "createdBy", ""))
+        for member in safe_get(data, "team", []):
             user_set.add(member)
     
     total_users = len(user_set)
@@ -287,7 +294,7 @@ def mark_milestone_complete(post_id, milestone_index):
     doc = ref.get()
     if doc.exists:
         data = doc.to_dict()
-        milestones = data.get("milestones", [])
+        milestones = safe_get(data, "milestones", [])
         if milestone_index < len(milestones):
             milestones[milestone_index]["completed"] = True
             ref.update({"milestones": milestones})
@@ -368,89 +375,94 @@ else:
             st.info("No project ideas found")
         for post_id, post in posts:
             # Safe title generation
-            title = str(post.get('title', 'Untitled Project'))
-            team_size = len(post.get('team', []))
-            status = str(post.get('status', 'Active'))
+            title = safe_get(post, 'title', 'Untitled Project')
+            team_size = len(safe_get(post, 'team', []))
+            status = safe_get(post, 'status', 'Active')
             
             with st.expander(f"{title} - Team: {team_size} members | Status: {status}"):
-                st.write(post["description"])
-                st.caption(f"Created by: {post['createdBy']}")
+                st.write(safe_get(post, "description", "No description available"))
+                st.caption(f"Created by: {safe_get(post, 'createdBy', 'Unknown')}")
                 
                 # Project details
-                if post.get("deadline"):
+                deadline = safe_get(post, "deadline")
+                if deadline:
                     try:
-                        deadline_date = datetime.datetime.strptime(post["deadline"], "%Y-%m-%d")
+                        deadline_date = datetime.datetime.strptime(deadline, "%Y-%m-%d")
                         days_left = (deadline_date - datetime.datetime.now()).days
-                        deadline_status = f"⏰ Deadline: {post['deadline']} ({days_left} days left)"
+                        deadline_status = f"⏰ Deadline: {deadline} ({days_left} days left)"
                         st.write(deadline_status)
                     except:
-                        st.write(f"⏰ Deadline: {post['deadline']}")
+                        st.write(f"⏰ Deadline: {deadline}")
                 
-                if post.get("contact"):
-                    st.write(f"📞 Contact: {post['contact']}")
+                contact = safe_get(post, "contact")
+                if contact:
+                    st.write(f"📞 Contact: {contact}")
                 
                 # Milestones section
-                milestones = post.get("milestones", [])
+                milestones = safe_get(post, "milestones", [])
                 if milestones:
                     st.subheader("Project Milestones")
                     for i, milestone in enumerate(milestones):
-                        status = "✅" if milestone.get("completed", False) else "⏳"
+                        status = "✅" if safe_get(milestone, "completed", False) else "⏳"
                         with st.container():
-                            st.markdown(f"<div class='milestone'><b>{status} {milestone['name']}</b><br>{milestone.get('description', '')}</div>", 
-                                       unsafe_allow_html=True)
+                            st.markdown(
+                                f"<div class='milestone'><b>{status} {safe_get(milestone, 'name', 'Unnamed Milestone')}</b><br>"
+                                f"{safe_get(milestone, 'description', 'No description')}</div>", 
+                                unsafe_allow_html=True
+                            )
                             
                             # Mark as complete button
-                            if st.session_state["user_uid"] in post["team"] and not milestone.get("completed", False):
+                            if st.session_state["user_uid"] in safe_get(post, "team", []) and not safe_get(milestone, "completed", False):
                                 if st.button(f"Mark Complete", key=f"complete_{post_id}_{i}"):
                                     mark_milestone_complete(post_id, i)
                                     st.success("Milestone marked as complete!")
                                     st.rerun()
                 
                 # Join team button
-                if st.session_state["user_uid"] not in post["team"]:
+                if st.session_state["user_uid"] not in safe_get(post, "team", []):
                     if st.button("Join Team", key=f"join_{post_id}"):
                         join_team(post_id, st.session_state["user_uid"])
                         st.success("You joined this team")
                         st.rerun()
                 
                 # Idea owner controls
-                if post["createdBy"] == st.session_state["user_uid"]:
+                if safe_get(post, "createdBy") == st.session_state["user_uid"]:
                     st.subheader("Manage Your Project")
-                    new_title = st.text_input("Edit Title", value=post["title"], key=f"title_{post_id}")
-                    new_desc = st.text_area("Edit Description", value=post["description"], key=f"desc_{post_id}")
+                    new_title = st.text_input("Edit Title", value=title, key=f"title_{post_id}")
+                    new_desc = st.text_area("Edit Description", value=safe_get(post, "description", ""), key=f"desc_{post_id}")
                     
                     # Deadline and contact
                     col1, col2 = st.columns(2)
                     with col1:
                         try:
-                            deadline_value = datetime.datetime.strptime(post.get("deadline", str(datetime.date.today())), "%Y-%m-%d")
+                            deadline_value = datetime.datetime.strptime(deadline or str(datetime.date.today()), "%Y-%m-%d")
                         except:
                             deadline_value = datetime.datetime.now()
                         new_deadline = st.date_input("Edit Deadline", 
                                                     value=deadline_value, 
                                                     key=f"deadline_{post_id}")
                     with col2:
-                        new_contact = st.text_input("Edit Contact", value=post.get("contact", ""), key=f"contact_{post_id}")
+                        new_contact = st.text_input("Edit Contact", value=contact or "", key=f"contact_{post_id}")
                     
                     # Status
                     status_options = ["Planning", "In Progress", "Testing", "Completed", "On Hold"]
-                    current_status = post.get("status", "Planning")
+                    current_status = status
                     status_index = status_options.index(current_status) if current_status in status_options else 0
                     new_status = st.selectbox("Project Status", status_options, index=status_index, key=f"status_{post_id}")
                     
                     # Milestone management
                     st.subheader("Manage Milestones")
                     new_milestones = []
-                    existing_milestones = post.get("milestones", [])
+                    existing_milestones = milestones
                     
                     # Display existing milestones for editing
                     for i, milestone in enumerate(existing_milestones):
                         col1, col2 = st.columns([3, 1])
                         with col1:
-                            name = st.text_input(f"Milestone {i+1} Name", value=milestone["name"], key=f"milestone_name_{post_id}_{i}")
-                            desc = st.text_area(f"Description", value=milestone.get("description", ""), key=f"milestone_desc_{post_id}_{i}")
+                            name = st.text_input(f"Milestone {i+1} Name", value=safe_get(milestone, "name", ""), key=f"milestone_name_{post_id}_{i}")
+                            desc = st.text_area(f"Description", value=safe_get(milestone, "description", ""), key=f"milestone_desc_{post_id}_{i}")
                         with col2:
-                            completed = st.checkbox("Completed", value=milestone.get("completed", False), key=f"milestone_complete_{post_id}_{i}")
+                            completed = st.checkbox("Completed", value=safe_get(milestone, "completed", False), key=f"milestone_complete_{post_id}_{i}")
                         new_milestones.append({"name": name, "description": desc, "completed": completed})
                     
                     # Add new milestone
@@ -513,7 +525,7 @@ else:
 
     elif menu == "Team Chat":
         st.header("Team Communication")
-        user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
+        user_posts = [(pid, safe_get(p, "title", "Untitled Project")) for pid, p in get_all_posts() if st.session_state["user_uid"] in safe_get(p, "team", [])]
 
         if not user_posts:
             st.info("You need to join a team to access team chat")
@@ -530,9 +542,9 @@ else:
                 chat_messages = list(chat_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(20).stream())
                 for msg in reversed(chat_messages):
                     msg_data = msg.to_dict()
-                    sender = msg_data.get("sender", "Unknown")
-                    content = msg_data.get("message", "")
-                    timestamp = msg_data.get("timestamp").strftime("%H:%M")
+                    sender = safe_get(msg_data, "sender", "Unknown")
+                    content = safe_get(msg_data, "message", "")
+                    timestamp = safe_get(msg_data, "timestamp", datetime.datetime.utcnow()).strftime("%H:%M")
                     
                     # Different styling for current user
                     if sender == st.session_state["email"]:
@@ -646,36 +658,39 @@ else:
                     
                     # Display items
                     for idx, (item_id, item) in enumerate(items):
-                        if filter_type == "Products" and item["type"] != "product":
+                        item_type = safe_get(item, "type", "unknown")
+                        if filter_type == "Products" and item_type != "product":
                             continue
-                        if filter_type == "Services" and item["type"] != "service":
+                        if filter_type == "Services" and item_type != "service":
                             continue
                             
                         with st.container():
                             st.markdown(f"<div class='product-card'>", unsafe_allow_html=True)
                             
                             # Header with type badge
-                            st.markdown(f"**{item['title']}**")
-                            st.caption(f"Type: {'Product' if item['type'] == 'product' else 'Service'}")
+                            st.markdown(f"**{safe_get(item, 'title', 'Untitled Item')}**")
+                            st.caption(f"Type: {'Product' if item_type == 'product' else 'Service' if item_type == 'service' else 'Item'}")
                             
                             # Image display
-                            if item.get("image_url"):
-                                st.image(item["image_url"], width=300)
+                            image_url = safe_get(item, "image_url")
+                            if image_url:
+                                st.image(image_url, width=300)
                             
                             # Details
-                            st.caption(f"By Team: {item['team_title']}")
-                            st.write(item["description"])
+                            st.caption(f"By Team: {safe_get(item, 'team_title', 'Unknown Team')}")
+                            st.write(safe_get(item, "description", "No description available"))
                             
                             # Price
-                            if item.get("price"):
-                                st.write(f"**Price**: {item['price']}")
+                            price = safe_get(item, "price", "Not specified")
+                            st.write(f"**Price**: {price}")
                             
-                            # Contact
-                            st.write(f"**Contact**: {item['contact']}")
+                            # Contact - Fixed with safe access
+                            contact = safe_get(item, "contact", "Contact information not provided")
+                            st.write(f"**Contact**: {contact}")
                             
                             # Volunteers for services
-                            if item["type"] == "service":
-                                volunteers = item.get("volunteers", [])
+                            if item_type == "service":
+                                volunteers = safe_get(item, "volunteers", [])
                                 st.write(f"**Volunteers**: {len(volunteers)}")
                                 if st.session_state["user_uid"] not in volunteers:
                                     if st.button("Join as Volunteer", key=f"join_vol_{item_id}_{idx}"):
@@ -687,7 +702,7 @@ else:
                                     st.info("You're already volunteering for this service")
                             
                             # Owner controls
-                            if item["createdBy"] == st.session_state["user_uid"]:
+                            if safe_get(item, "createdBy") == st.session_state["user_uid"]:
                                 if st.button("Delete", key=f"delete_{item_id}_{idx}", type="secondary"):
                                     delete_product(item_id)
                                     st.success("Item deleted")
@@ -745,7 +760,7 @@ else:
         posts = db.collection("posts").stream()
         for post in posts:
             data = post.to_dict()
-            teams_data[data["title"]] = len(data.get("team", []))
+            teams_data[safe_get(data, "title", "Untitled Project")] = len(safe_get(data, "team", []))
         
         top_teams = sorted(teams_data.items(), key=lambda x: x[1], reverse=True)[:5]
         for team, members in top_teams:
@@ -768,12 +783,13 @@ else:
                 idea_count += 1
                 data = idea.to_dict()
                 with st.container():
-                    st.markdown(f"**{data['title']}**")
-                    st.caption(f"Created by: {data['createdBy']} | Team members: {len(data.get('team', []))}")
-                    st.write(data["description"])
+                    st.markdown(f"**{safe_get(data, 'title', 'Untitled Project')}**")
+                    st.caption(f"Created by: {safe_get(data, 'createdBy', 'Unknown')} | Team members: {len(safe_get(data, 'team', []))}")
+                    st.write(safe_get(data, "description", "No description available"))
                     
-                    if data.get("deadline"):
-                        st.write(f"**Deadline**: {data['deadline']}")
+                    deadline = safe_get(data, "deadline")
+                    if deadline:
+                        st.write(f"**Deadline**: {deadline}")
                     
                     # Delete button for each idea
                     if st.button("Delete Idea", key=f"del_idea_{idea.id}", type="secondary"):
@@ -807,21 +823,23 @@ else:
             
             for item in all_items:
                 data = item.to_dict()
+                item_type = safe_get(data, "type", "unknown")
                 
                 # Apply filter
-                if filter_type == "Products" and data["type"] != "product":
+                if filter_type == "Products" and item_type != "product":
                     continue
-                if filter_type == "Services" and data["type"] != "service":
+                if filter_type == "Services" and item_type != "service":
                     continue
                     
                 item_count += 1
                 with st.container():
-                    st.markdown(f"**{data['title']}**")
-                    st.caption(f"Type: {data['type']} | Created by: {data['createdBy']}")
-                    st.write(data["description"])
+                    st.markdown(f"**{safe_get(data, 'title', 'Untitled Item')}**")
+                    st.caption(f"Type: {item_type} | Created by: {safe_get(data, 'createdBy', 'Unknown')}")
+                    st.write(safe_get(data, "description", "No description available"))
                     
-                    if data.get("image_url"):
-                        st.image(data["image_url"], width=200)
+                    image_url = safe_get(data, "image_url")
+                    if image_url:
+                        st.image(image_url, width=200)
                     
                     # Delete button for each item
                     if st.button("Delete Item", key=f"del_item_{item.id}", type="secondary"):
