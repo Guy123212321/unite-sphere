@@ -7,6 +7,92 @@ from firebase_admin import credentials, firestore
 
 # Set page layout
 st.set_page_config(page_title="UniteSphere", layout="centered")
+st.markdown(
+    """
+    <style>
+    /* Your entire CSS styling block here */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+
+    .main {
+        background: linear-gradient(135deg, #8e2de2, #4a00e0);
+        font-family: 'Poppins', sans-serif;
+        color: #fafafa;
+        padding: 30px 60px;
+        min-height: 100vh;
+    }
+    h1, h2, h3 {
+        color: #ff6ec4;
+        font-weight: 700;
+        text-shadow: 1px 1px 3px #2e004f;
+    }
+    div.stButton > button {
+        background: linear-gradient(45deg, #ff6ec4, #7873f5);
+        color: white;
+        font-weight: 700;
+        border-radius: 15px;
+        padding: 14px 36px;
+        font-size: 18px;
+        box-shadow: 0 6px 15px rgba(255,110,196,0.7);
+        transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+    div.stButton > button:hover {
+        background: linear-gradient(45deg, #7873f5, #ff6ec4);
+        box-shadow: 0 8px 25px rgba(120,115,245,0.9);
+        cursor: pointer;
+    }
+    input[type="text"], input[type="password"], textarea {
+        border: 2px solid #ff6ec4 !important;
+        border-radius: 14px !important;
+        padding: 14px !important;
+        font-size: 18px !important;
+        font-family: 'Poppins', sans-serif !important;
+        background: #3a007d;
+        color: #fafafa;
+        box-shadow: 0 4px 14px rgba(255,110,196,0.4);
+        transition: border-color 0.3s ease, background 0.3s ease;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+        border-color: #7873f5 !important;
+        background: #5e32a8 !important;
+        outline: none !important;
+        box-shadow: 0 0 12px #7873f5 !important;
+    }
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #ff6ec4, #7873f5);
+        color: white;
+        font-family: 'Poppins', sans-serif;
+    }
+    [data-testid="stSidebar"] .css-1d391kg, 
+    [data-testid="stSidebar"] .css-1v3fvcr {
+        color: white;
+    }
+    .stContainer > div {
+        scrollbar-width: thin;
+        scrollbar-color: #ff6ec4 #2e004f;
+    }
+    .stContainer > div::-webkit-scrollbar {
+        width: 8px;
+    }
+    .stContainer > div::-webkit-scrollbar-track {
+        background: #2e004f;
+    }
+    .stContainer > div::-webkit-scrollbar-thumb {
+        background-color: #ff6ec4;
+        border-radius: 6px;
+    }
+    a, a:visited {
+        color: #ffb6d9;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    a:hover {
+        text-decoration: underline;
+        color: #f50083;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Initialize session flags only once
 if "rerun_now" not in st.session_state:
