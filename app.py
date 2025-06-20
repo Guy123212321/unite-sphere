@@ -115,6 +115,13 @@ st.markdown(
     .delete-btn {
         background: #dc3545 !important;
     }
+    .milestone {
+        background: #e6f7ff;
+        border-left: 4px solid #0d6efd;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 0 8px 8px 0;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -130,21 +137,25 @@ if "rerun_now" not in st.session_state:
 
 # Firebase setup - make sure it's initialized once
 if not firebase_admin._apps:
+    # Load Firebase Service Account from secrets
     service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
+    
+    # Parse the JSON string to a dictionary
     key_dict = json.loads(service_account_json)
+    
+    # Create credentials from the dictionary
     cred = credentials.Certificate(key_dict)
-    # Get storage bucket name from secrets
-    storage_bucket = st.secrets["FIREBASE_STORAGE_BUCKET"]
+    
+    # Initialize Firebase app with credentials and storage bucket
     firebase_admin.initialize_app(cred, {
-        'storageBucket': storage_bucket
+        'storageBucket': f"{key_dict['project_id']}.appspot.com"
     })
 
 # Set up Firestore client and API key
 db = firestore.client()
 FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 # Get storage bucket explicitly
-storage_bucket = st.secrets["FIREBASE_STORAGE_BUCKET"]
-FIREBASE_BUCKET = storage.bucket(storage_bucket)  # Fixed: Pass bucket name explicitly
+FIREBASE_BUCKET = storage.bucket()
 
 # Auth functions
 def signup(email, password):
@@ -167,20 +178,31 @@ def check_email_verified(id_token):
     return res.get("users", [{}])[0].get("emailVerified", False)
 
 # Firestore functions
-def post_idea(title, description, user_uid):
-    db.collection("posts").add({
+def post_idea(title, description, user_uid, deadline, milestones, contact):
+    idea_data = {
         "title": title,
         "description": description,
         "createdAt": datetime.datetime.utcnow(),
         "createdBy": user_uid,
-        "team": [user_uid]
-    })
+        "team": [user_uid],
+        "deadline": deadline,
+        "contact": contact,
+        "status": "Planning",
+        "milestones": milestones or []
+    }
+    return db.collection("posts").add(idea_data)
 
-def update_idea(post_id, new_title, new_description):
-    db.collection("posts").document(post_id).update({
+def update_idea(post_id, new_title, new_description, new_deadline, new_status, new_milestones, new_contact):
+    update_data = {
         "title": new_title,
-        "description": new_description
-    })
+        "description": new_description,
+        "deadline": new_deadline,
+        "status": new_status,
+        "contact": new_contact
+    }
+    if new_milestones is not None:
+        update_data["milestones"] = new_milestones
+    db.collection("posts").document(post_id).update(update_data)
 
 def delete_idea(post_id):
     db.collection("posts").document(post_id).delete()
@@ -246,6 +268,20 @@ def count_total_stats():
     
     return total_ideas, total_products, total_services, total_users
 
+def add_milestone(post_id, milestone):
+    ref = db.collection("posts").document(post_id)
+    ref.update({"milestones": firestore.ArrayUnion([milestone])})
+
+def mark_milestone_complete(post_id, milestone_index):
+    ref = db.collection("posts").document(post_id)
+    doc = ref.get()
+    if doc.exists:
+        data = doc.to_dict()
+        milestones = data.get("milestones", [])
+        if milestone_index < len(milestones):
+            milestones[milestone_index]["completed"] = True
+            ref.update({"milestones": milestones})
+
 # UI starts
 st.markdown('<div class="main">', unsafe_allow_html=True)
 st.title("UniteSphere - Team Collaboration Platform")
@@ -305,9 +341,35 @@ else:
     if menu == "Home":
         st.header("Project Ideas")
         for post_id, post in get_all_posts():
-            with st.expander(f"{post['title']} - Team: {len(post['team'])} members"):
+            with st.expander(f"{post['title']} - Team: {len(post['team'])} members | Status: {post.get('status', 'Active')}"):
                 st.write(post["description"])
                 st.caption(f"Created by: {post['createdBy']}")
+                
+                # Project details
+                if post.get("deadline"):
+                    days_left = (datetime.datetime.strptime(post["deadline"], "%Y-%m-%d") - datetime.datetime.now()).days
+                    deadline_status = f"⏰ Deadline: {post['deadline']} ({days_left} days left)"
+                    st.write(deadline_status)
+                
+                if post.get("contact"):
+                    st.write(f"📞 Contact: {post['contact']}")
+                
+                # Milestones section
+                milestones = post.get("milestones", [])
+                if milestones:
+                    st.subheader("Project Milestones")
+                    for i, milestone in enumerate(milestones):
+                        status = "✅" if milestone.get("completed", False) else "⏳"
+                        with st.container():
+                            st.markdown(f"<div class='milestone'><b>{status} {milestone['name']}</b><br>{milestone.get('description', '')}</div>", 
+                                       unsafe_allow_html=True)
+                            
+                            # Mark as complete button
+                            if st.session_state["user_uid"] in post["team"] and not milestone.get("completed", False):
+                                if st.button(f"Mark Complete", key=f"complete_{post_id}_{i}"):
+                                    mark_milestone_complete(post_id, i)
+                                    st.success("Milestone marked as complete!")
+                                    request_rerun()
                 
                 # Join team button
                 if st.session_state["user_uid"] not in post["team"]:
@@ -318,29 +380,80 @@ else:
                 
                 # Idea owner controls
                 if post["createdBy"] == st.session_state["user_uid"]:
-                    st.subheader("Manage Your Idea")
+                    st.subheader("Manage Your Project")
                     new_title = st.text_input("Edit Title", value=post["title"], key=f"title_{post_id}")
                     new_desc = st.text_area("Edit Description", value=post["description"], key=f"desc_{post_id}")
+                    
+                    # Deadline and contact
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("Update Idea", key=f"update_{post_id}"):
-                            update_idea(post_id, new_title, new_desc)
-                            st.success("Idea updated")
-                            request_rerun()
+                        new_deadline = st.date_input("Edit Deadline", 
+                                                    value=datetime.datetime.strptime(post.get("deadline", str(datetime.date.today())), "%Y-%m-%d"), 
+                                                    key=f"deadline_{post_id}")
                     with col2:
-                        if st.button("Delete Idea", key=f"delete_{post_id}", type="secondary"):
-                            delete_idea(post_id)
-                            st.success("Idea deleted")
-                            request_rerun()
+                        new_contact = st.text_input("Edit Contact", value=post.get("contact", ""), key=f"contact_{post_id}")
+                    
+                    # Status
+                    status_options = ["Planning", "In Progress", "Testing", "Completed", "On Hold"]
+                    new_status = st.selectbox("Project Status", status_options, index=status_options.index(post.get("status", "Planning")), key=f"status_{post_id}")
+                    
+                    # Milestone management
+                    st.subheader("Manage Milestones")
+                    new_milestones = []
+                    existing_milestones = post.get("milestones", [])
+                    
+                    # Display existing milestones for editing
+                    for i, milestone in enumerate(existing_milestones):
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            name = st.text_input(f"Milestone {i+1} Name", value=milestone["name"], key=f"milestone_name_{post_id}_{i}")
+                            desc = st.text_area(f"Description", value=milestone.get("description", ""), key=f"milestone_desc_{post_id}_{i}")
+                        with col2:
+                            completed = st.checkbox("Completed", value=milestone.get("completed", False), key=f"milestone_complete_{post_id}_{i}")
+                        new_milestones.append({"name": name, "description": desc, "completed": completed})
+                    
+                    # Add new milestone
+                    if st.button("Add New Milestone", key=f"add_milestone_{post_id}"):
+                        new_milestones.append({"name": "New Milestone", "description": "", "completed": False})
+                    
+                    # Update button
+                    if st.button("Update Project", key=f"update_{post_id}"):
+                        update_idea(post_id, new_title, new_desc, str(new_deadline), new_status, new_milestones, new_contact)
+                        st.success("Project updated")
+                        request_rerun()
+                    
+                    # Delete button
+                    if st.button("Delete Project", key=f"delete_{post_id}", type="secondary"):
+                        delete_idea(post_id)
+                        st.success("Project deleted")
+                        request_rerun()
 
     elif menu == "Submit Idea":
-        st.header("Submit a New Idea")
-        title = st.text_input("Idea Title")
-        description = st.text_area("Description")
-        if st.button("Post Idea", use_container_width=True):
+        st.header("Submit a New Project Idea")
+        title = st.text_input("Project Title")
+        description = st.text_area("Project Description")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            deadline = st.date_input("Project Deadline", min_value=datetime.date.today())
+        with col2:
+            contact = st.text_input("Contact Information")
+        
+        # Milestones
+        st.subheader("Project Milestones")
+        milestones = []
+        num_milestones = st.slider("Number of Milestones", 0, 10, 3)
+        
+        for i in range(num_milestones):
+            st.markdown(f"### Milestone {i+1}")
+            name = st.text_input(f"Name", key=f"milestone_name_{i}")
+            desc = st.text_area(f"Description", key=f"milestone_desc_{i}")
+            milestones.append({"name": name, "description": desc, "completed": False})
+        
+        if st.button("Submit Project", use_container_width=True):
             if title and description:
-                post_idea(title, description, st.session_state["user_uid"])
-                st.success("Your idea has been posted")
+                post_idea(title, description, st.session_state["user_uid"], str(deadline), milestones, contact)
+                st.success("Your project has been posted")
                 request_rerun()
             else:
                 st.warning("Please fill both title and description fields")
@@ -415,7 +528,9 @@ else:
                     st.warning("This feature is currently under development")
 
     elif menu == "Products & Services":
-        st.header("Products & Services")
+        st.header("Products & Services Marketplace")
+        st.info("This is where completed projects can be offered as products or services")
+        
         user_teams = get_user_teams(st.session_state["user_uid"])
         
         if not user_teams:
@@ -425,16 +540,16 @@ else:
             
             # Product Submission
             with tab_prod:
-                st.subheader("Submit a Product")
+                st.subheader("Submit a Completed Product")
                 selected_team = st.selectbox("Team", user_teams, format_func=lambda x: x[1], key="prod_team_select")
                 prod_title = st.text_input("Product Name")
                 prod_desc = st.text_area("Product Description")
+                prod_price = st.text_input("Price")
                 prod_contact = st.text_input("Contact Information")
-                prod_deadline = st.date_input("Target Date", min_value=datetime.date.today())
-                prod_image = st.file_uploader("Product Image (optional)", type=["png", "jpg", "jpeg"])
+                prod_image = st.file_uploader("Product Image", type=["png", "jpg", "jpeg"])
                 
                 if st.button("Submit Product", use_container_width=True):
-                    if prod_title and prod_desc and prod_contact:
+                    if prod_title and prod_desc and prod_contact and prod_price:
                         image_url = upload_image_to_firebase(prod_image) if prod_image else None
                         db.collection("products_services").add({
                             "team_id": selected_team[0],
@@ -442,13 +557,13 @@ else:
                             "type": "product",
                             "title": prod_title,
                             "description": prod_desc,
+                            "price": prod_price,
                             "contact": prod_contact,
-                            "deadline": str(prod_deadline),
                             "image_url": image_url,
                             "createdBy": st.session_state["user_uid"],
                             "createdAt": datetime.datetime.utcnow()
                         })
-                        st.success("Product submitted")
+                        st.success("Product submitted to marketplace")
                         request_rerun()
                     else:
                         st.warning("Please fill all required fields")
@@ -459,24 +574,24 @@ else:
                 selected_team_s = st.selectbox("Team", user_teams, format_func=lambda x: x[1], key="serv_team_select")
                 serv_title = st.text_input("Service Name")
                 serv_desc = st.text_area("Service Description")
+                serv_price = st.text_input("Price")
                 serv_contact = st.text_input("Contact Information")
-                serv_deadline = st.date_input("Availability", min_value=datetime.date.today())
                 
                 if st.button("Submit Service", use_container_width=True):
-                    if serv_title and serv_desc and serv_contact:
+                    if serv_title and serv_desc and serv_contact and serv_price:
                         db.collection("products_services").add({
                             "team_id": selected_team_s[0],
                             "team_title": selected_team_s[1],
                             "type": "service",
                             "title": serv_title,
                             "description": serv_desc,
+                            "price": serv_price,
                             "contact": serv_contact,
-                            "deadline": str(serv_deadline),
                             "createdBy": st.session_state["user_uid"],
                             "createdAt": datetime.datetime.utcnow(),
                             "volunteers": []
                         })
-                        st.success("Service submitted")
+                        st.success("Service submitted to marketplace")
                         request_rerun()
                     else:
                         st.warning("Please fill all required fields")
@@ -514,9 +629,9 @@ else:
                             st.caption(f"By Team: {item['team_title']}")
                             st.write(item["description"])
                             
-                            # Deadline
-                            if item.get("deadline"):
-                                st.write(f"**Target Date**: {item['deadline']}")
+                            # Price
+                            if item.get("price"):
+                                st.write(f"**Price**: {item['price']}")
                             
                             # Contact
                             st.write(f"**Contact**: {item['contact']}")
@@ -620,6 +735,9 @@ else:
                     st.caption(f"Created by: {data['createdBy']} | Team members: {len(data.get('team', []))}")
                     st.write(data["description"])
                     
+                    if data.get("deadline"):
+                        st.write(f"**Deadline**: {data['deadline']}")
+                    
                     # Delete button for each idea
                     if st.button("Delete Idea", key=f"del_idea_{idea.id}", type="secondary"):
                         db.collection("posts").document(idea.id).delete()
@@ -637,7 +755,7 @@ else:
             admin_desc = st.text_area("Description", key="admin_desc")
             if st.button("Post Idea as Admin", key="admin_post_idea"):
                 if admin_title and admin_desc:
-                    post_idea(admin_title, admin_desc, "admin")
+                    post_idea(admin_title, admin_desc, "admin", str(datetime.date.today()), [], "admin@example.com")
                     st.success("Admin idea posted")
                     request_rerun()
         
@@ -684,12 +802,12 @@ else:
             admin_item_type = st.selectbox("Item Type", ["product", "service"], key="admin_item_type")
             admin_item_title = st.text_input("Item Name", key="admin_item_title")
             admin_item_desc = st.text_area("Description", key="admin_item_desc")
+            admin_item_price = st.text_input("Price", key="admin_item_price")
             admin_item_contact = st.text_input("Contact Information", key="admin_item_contact")
-            admin_item_deadline = st.date_input("Target Date", min_value=datetime.date.today())
             admin_item_image = st.file_uploader("Item Image (optional)", type=["png", "jpg", "jpeg"])
             
             if st.button("Submit as Admin", key="admin_submit_item"):
-                if admin_item_title and admin_item_desc and admin_item_contact:
+                if admin_item_title and admin_item_desc and admin_item_contact and admin_item_price:
                     image_url = upload_image_to_firebase(admin_item_image) if admin_item_image else None
                     db.collection("products_services").add({
                         "team_id": "admin",
@@ -697,8 +815,8 @@ else:
                         "type": admin_item_type,
                         "title": admin_item_title,
                         "description": admin_item_desc,
+                        "price": admin_item_price,
                         "contact": admin_item_contact,
-                        "deadline": str(admin_item_deadline),
                         "image_url": image_url,
                         "createdBy": "admin",
                         "createdAt": datetime.datetime.utcnow(),
