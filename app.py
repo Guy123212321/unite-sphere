@@ -671,10 +671,15 @@ else:
                             st.markdown(f"**{safe_get(item, 'title', 'Untitled Item')}**")
                             st.caption(f"Type: {'Product' if item_type == 'product' else 'Service' if item_type == 'service' else 'Item'}")
                             
-                            # Image display
+                            # FIXED: Robust image display with error handling
                             image_url = safe_get(item, "image_url")
                             if image_url:
-                                st.image(image_url, width=300)
+                                try:
+                                    st.image(image_url, width=300)
+                                except Exception as e:
+                                    st.warning("Image unavailable or failed to load")
+                            else:
+                                st.info("No image available for this item")
                             
                             # Details
                             st.caption(f"By Team: {safe_get(item, 'team_title', 'Unknown Team')}")
@@ -684,7 +689,7 @@ else:
                             price = safe_get(item, "price", "Not specified")
                             st.write(f"**Price**: {price}")
                             
-                            # Contact - Fixed with safe access
+                            # Contact
                             contact = safe_get(item, "contact", "Contact information not provided")
                             st.write(f"**Contact**: {contact}")
                             
@@ -837,9 +842,15 @@ else:
                     st.caption(f"Type: {item_type} | Created by: {safe_get(data, 'createdBy', 'Unknown')}")
                     st.write(safe_get(data, "description", "No description available"))
                     
+                    # FIXED: Robust image display with error handling
                     image_url = safe_get(data, "image_url")
                     if image_url:
-                        st.image(image_url, width=200)
+                        try:
+                            st.image(image_url, width=200)
+                        except Exception as e:
+                            st.warning("Image unavailable or failed to load")
+                    else:
+                        st.info("No image available for this item")
                     
                     # Delete button for each item
                     if st.button("Delete Item", key=f"del_item_{item.id}", type="secondary"):
