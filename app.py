@@ -367,7 +367,12 @@ else:
         if not posts:
             st.info("No project ideas found")
         for post_id, post in posts:
-            with st.expander(f"{post['title']} - Team: {len(post['team'])} members | Status: {post.get('status', 'Active')}", key=f"expander_{post_id}"):
+            # Safe title generation
+            title = str(post.get('title', 'Untitled Project'))
+            team_size = len(post.get('team', []))
+            status = str(post.get('status', 'Active'))
+            
+            with st.expander(f"{title} - Team: {team_size} members | Status: {status}"):
                 st.write(post["description"])
                 st.caption(f"Created by: {post['createdBy']}")
                 
@@ -640,7 +645,7 @@ else:
                     filter_type = st.selectbox("Filter by Type", ["All", "Products", "Services"], key="marketplace_filter")
                     
                     # Display items
-                    for idx, (item_id, item) in enumerate(items):
+                    for item_id, item in items:
                         if filter_type == "Products" and item["type"] != "product":
                             continue
                         if filter_type == "Services" and item["type"] != "service":
@@ -650,46 +655,46 @@ else:
                             st.markdown(f"<div class='product-card'>", unsafe_allow_html=True)
                             
                             # Header with type badge
-                            st.markdown(f"**{item['title']}**", key=f"item_title_{idx}")
-                            st.caption(f"Type: {'Product' if item['type'] == 'product' else 'Service'}", key=f"item_type_{idx}")
+                            st.markdown(f"**{item['title']}**")
+                            st.caption(f"Type: {'Product' if item['type'] == 'product' else 'Service'}")
                             
                             # Image display
                             if item.get("image_url"):
-                                st.image(item["image_url"], width=300, key=f"item_image_{idx}")
+                                st.image(item["image_url"], width=300)
                             
                             # Details
-                            st.caption(f"By Team: {item['team_title']}", key=f"item_team_{idx}")
-                            st.write(item["description"], key=f"item_desc_{idx}")
+                            st.caption(f"By Team: {item['team_title']}")
+                            st.write(item["description"])
                             
                             # Price
                             if item.get("price"):
-                                st.write(f"**Price**: {item['price']}", key=f"item_price_{idx}")
+                                st.write(f"**Price**: {item['price']}")
                             
                             # Contact
-                            st.write(f"**Contact**: {item['contact']}", key=f"item_contact_{idx}")
+                            st.write(f"**Contact**: {item['contact']}")
                             
                             # Volunteers for services
                             if item["type"] == "service":
                                 volunteers = item.get("volunteers", [])
-                                st.write(f"**Volunteers**: {len(volunteers)}", key=f"item_volunteers_{idx}")
+                                st.write(f"**Volunteers**: {len(volunteers)}")
                                 if st.session_state["user_uid"] not in volunteers:
-                                    if st.button("Join as Volunteer", key=f"join_vol_{item_id}_{idx}"):
+                                    if st.button("Join as Volunteer", key=f"join_vol_{item_id}"):
                                         volunteers.append(st.session_state["user_uid"])
                                         db.collection("products_services").document(item_id).update({"volunteers": volunteers})
                                         st.success("You're now a volunteer")
                                         st.rerun()
                                 else:
-                                    st.info("You're already volunteering for this service", key=f"already_volunteering_{idx}")
+                                    st.info("You're already volunteering for this service")
                             
                             # Owner controls
                             if item["createdBy"] == st.session_state["user_uid"]:
-                                if st.button("Delete", key=f"delete_{item_id}_{idx}", type="secondary"):
+                                if st.button("Delete", key=f"delete_{item_id}", type="secondary"):
                                     delete_product(item_id)
                                     st.success("Item deleted")
                                     st.rerun()
                             
                             st.markdown("</div>", unsafe_allow_html=True)
-                            st.markdown("---", key=f"divider_{idx}")
+                            st.markdown("---")
 
     elif menu == "Stats":
         st.header("Platform Statistics")
@@ -702,14 +707,14 @@ else:
                 <h3>Total Ideas</h3>
                 <div class="value">{total_ideas}</div>
             </div>
-            """, unsafe_allow_html=True, key="stats_ideas")
+            """, unsafe_allow_html=True)
             
             st.markdown(f"""
             <div class="stats-card">
                 <h3>Products</h3>
                 <div class="value">{total_products}</div>
             </div>
-            """, unsafe_allow_html=True, key="stats_products")
+            """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
@@ -717,14 +722,14 @@ else:
                 <h3>Services</h3>
                 <div class="value">{total_services}</div>
             </div>
-            """, unsafe_allow_html=True, key="stats_services")
+            """, unsafe_allow_html=True)
             
             st.markdown(f"""
             <div class="stats-card">
                 <h3>Registered Users</h3>
                 <div class="value">{total_users}</div>
             </div>
-            """, unsafe_allow_html=True, key="stats_users")
+            """, unsafe_allow_html=True)
         
         # Activity chart placeholder
         st.subheader("Activity Over Time")
@@ -743,15 +748,15 @@ else:
             teams_data[data["title"]] = len(data.get("team", []))
         
         top_teams = sorted(teams_data.items(), key=lambda x: x[1], reverse=True)[:5]
-        for i, (team, members) in enumerate(top_teams):
-            st.progress(min(members/20, 1.0), text=f"{team}: {members} members", key=f"team_progress_{i}")
+        for team, members in top_teams:
+            st.progress(min(members/20, 1.0), text=f"{team}: {members} members")
     
     elif menu == "Admin":
         st.header("Administration Panel")
         st.warning("You have administrative privileges on this platform")
         
         # Create tabs for different admin functions
-        admin_tabs = st.tabs(["Project Ideas", "Products & Services", "User Management"], key="admin_tabs")
+        admin_tabs = st.tabs(["Project Ideas", "Products & Services", "User Management"])
         
         # Tab 1: Project Ideas Management
         with admin_tabs[0]:
@@ -763,12 +768,12 @@ else:
                 idea_count += 1
                 data = idea.to_dict()
                 with st.container():
-                    st.markdown(f"**{data['title']}**", key=f"admin_idea_title_{idea.id}")
-                    st.caption(f"Created by: {data['createdBy']} | Team members: {len(data.get('team', []))}", key=f"admin_idea_caption_{idea.id}")
-                    st.write(data["description"], key=f"admin_idea_desc_{idea.id}")
+                    st.markdown(f"**{data['title']}**")
+                    st.caption(f"Created by: {data['createdBy']} | Team members: {len(data.get('team', []))}")
+                    st.write(data["description"])
                     
                     if data.get("deadline"):
-                        st.write(f"**Deadline**: {data['deadline']}", key=f"admin_idea_deadline_{idea.id}")
+                        st.write(f"**Deadline**: {data['deadline']}")
                     
                     # Delete button for each idea
                     if st.button("Delete Idea", key=f"del_idea_{idea.id}", type="secondary"):
@@ -776,7 +781,7 @@ else:
                         st.success("Idea deleted")
                         st.rerun()
                     
-                    st.markdown("---", key=f"admin_idea_divider_{idea.id}")
+                    st.markdown("---")
             
             if idea_count == 0:
                 st.info("No project ideas found")
@@ -811,12 +816,12 @@ else:
                     
                 item_count += 1
                 with st.container():
-                    st.markdown(f"**{data['title']}**", key=f"admin_item_title_{item.id}")
-                    st.caption(f"Type: {data['type']} | Created by: {data['createdBy']}", key=f"admin_item_caption_{item.id}")
-                    st.write(data["description"], key=f"admin_item_desc_{item.id}")
+                    st.markdown(f"**{data['title']}**")
+                    st.caption(f"Type: {data['type']} | Created by: {data['createdBy']}")
+                    st.write(data["description"])
                     
                     if data.get("image_url"):
-                        st.image(data["image_url"], width=200, key=f"admin_item_image_{item.id}")
+                        st.image(data["image_url"], width=200)
                     
                     # Delete button for each item
                     if st.button("Delete Item", key=f"del_item_{item.id}", type="secondary"):
@@ -824,7 +829,7 @@ else:
                         st.success("Item deleted")
                         st.rerun()
                     
-                    st.markdown("---", key=f"admin_item_divider_{item.id}")
+                    st.markdown("---")
             
             if item_count == 0:
                 st.info("No products or services found")
