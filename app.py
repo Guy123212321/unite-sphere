@@ -329,8 +329,3 @@ else:
 
 # Close main div container
 st.markdown('</div>', unsafe_allow_html=True)
-
-                st.success("Sent! Scroll to see your message.")
-                st.session_state["rerun_now"] = True
-                st.stop()
-st.markdown('</div>', unsafe_allow_html=True)                
