@@ -4,10 +4,11 @@ import requests
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
+
 st.markdown(
     """
     <style>
-    /* Dark purple gradient background for Streamlit app container */
+    /* Dark purple gradient background for the main app container */
     [data-testid="stAppViewContainer"] {
         background: linear-gradient(135deg, #1a1a2e, #2c003e);
         position: relative;
@@ -18,7 +19,7 @@ st.markdown(
         overflow-x: hidden;
     }
 
-    /* Subtle grid overlay - very faint */
+    /* Subtle faint grid overlay */
     [data-testid="stAppViewContainer"]::before {
         content: "";
         position: absolute;
@@ -39,7 +40,7 @@ st.markdown(
         margin-bottom: 1rem;
     }
 
-    /* Button styling */
+    /* Buttons styling */
     button {
         background-color: #4b3b6b !important;
         color: #e0d9f7 !important;
@@ -56,10 +57,10 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(121, 110, 176, 0.8);
     }
 
-    /* Inputs and textareas */
+    /* Inputs and textareas keep default background, but styled border and text color */
     input[type="text"], input[type="email"], input[type="password"], textarea {
-        background-color: #2c243c !important;
-        color: #cfccea !important;
+        background-color: unset !important;
+        color: #2c243c !important;  /* darker text for readability on default input bg */
         border: 1px solid #796eb0 !important;
         border-radius: 6px;
         padding: 8px;
@@ -76,7 +77,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 
 
 # Initialize session flags only once
