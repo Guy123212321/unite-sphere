@@ -258,13 +258,8 @@ if not firebase_admin._apps:
         # Create credentials from the dictionary
         cred = credentials.Certificate(key_dict)
         
-        # Get the storage bucket name from project ID
-        bucket_name = f"{key_dict['project_id']}.appspot.com"
-        
-        # Initialize Firebase app with credentials and storage bucket
-        firebase_admin.initialize_app(cred, {
-            'storageBucket': bucket_name
-        })
+        # Initialize Firebase app with credentials
+        firebase_admin.initialize_app(cred)
     except Exception as e:
         st.error(f"Firebase initialization failed: {e}")
 
@@ -272,13 +267,11 @@ if not firebase_admin._apps:
 db = firestore.client()
 FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 
-# Get storage bucket explicitly using the bucket name
+# Get storage bucket using the default bucket for the project
 try:
-    # Load Firebase Service Account from secrets again to get bucket name
-    service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
-    key_dict = json.loads(service_account_json)
-    bucket_name = f"{key_dict['project_id']}.appspot.com"
-    FIREBASE_BUCKET = storage.bucket(bucket_name)
+    FIREBASE_BUCKET = storage.bucket()
+    if FIREBASE_BUCKET is None:
+        st.error("Failed to get Firebase Storage bucket")
 except Exception as e:
     st.error(f"Failed to initialize Firebase Storage: {e}")
     FIREBASE_BUCKET = None
@@ -364,13 +357,19 @@ def get_user_teams(user_uid):
 def upload_image_to_firebase(img_file):
     if img_file is not None and FIREBASE_BUCKET is not None:
         try:
+            # Generate unique filename
             blob_name = f"products/{uuid.uuid4().hex}_{img_file.name}"
             blob = FIREBASE_BUCKET.blob(blob_name)
+            
+            # Upload the file
             blob.upload_from_file(img_file, content_type=img_file.type)
+            
+            # Make the file publicly accessible
             blob.make_public()
             return blob.public_url
         except Exception as e:
             st.error(f"Failed to upload image: {e}")
+            return None
     return None
 
 def delete_product(item_id):
