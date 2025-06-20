@@ -1090,5 +1090,3 @@ elif st.session_state.current_page == "Admin":
         st.write("- Suspending or deleting user accounts")
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-this is the code for a websiteFailed to upload image: 404 POST https://storage.googleapis.com/upload/storage/v1/b/teamup-7e098.appspot.com/o?uploadType=resumable: { "error": { "code": 404, "message": "The specified bucket does not exist.", "errors": [ { "message": "The specified bucket does not exist.", "domain": "global", "reason": "notFound" } ] } } : ('Request failed with status code', 404, 'Expected one of', <HTTPStatus.OK: 200>, <HTTPStatus.CREATED: 201>)
