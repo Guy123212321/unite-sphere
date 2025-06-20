@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for professional UI with improved readability
+# Custom CSS for professional UI with consistent blue text
 st.markdown(
     """
     <style>
@@ -65,14 +65,13 @@ st.markdown(
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    /* Improved readability for both modes */
+    /* Consistent blue text for all content */
     body, h1, h2, h3, h4, h5, h6, p, div, span {
-        color: #4a4a4a !important;  /* Neutral gray for better contrast */
+        color: #0d6efd !important;  /* Primary blue color */
     }
     
     /* Headers */
     h1, h2, h3 {
-        color: #0d6efd !important;
         font-family: 'Arial', sans-serif;
         border-bottom: 2px solid #0d6efd;
         padding-bottom: 8px;
@@ -477,7 +476,7 @@ if "id_token" not in st.session_state:
     # Main menu with descriptions
     st.markdown("""
     <div class="home-container" style="text-align: center;">
-        <h1 style="color: #0d6efd;">UniteSphere</h1>
+        <h1>UniteSphere</h1>
         <h3>Team Collaboration Platform</h3>
         <p style="font-size: 1.2rem; max-width: 800px; margin: 20px auto;">
             Where developers, designers, and innovators come together to bring ideas to life
