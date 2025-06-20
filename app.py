@@ -671,7 +671,6 @@ else:
                             st.markdown(f"**{safe_get(item, 'title', 'Untitled Item')}**")
                             st.caption(f"Type: {'Product' if item_type == 'product' else 'Service' if item_type == 'service' else 'Item'}")
                             
-                            # FIXED: Robust image display with error handling
                             image_url = safe_get(item, "image_url")
                             if image_url:
                                 try:
