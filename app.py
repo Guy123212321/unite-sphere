@@ -46,6 +46,13 @@ st.markdown(
 if "rerun_now" not in st.session_state:
     st.session_state["rerun_now"] = False
 
+# Safe rerun request helper
+def request_rerun():
+    # Only rerun if not already requested
+    if not st.session_state.get("rerun_now", False):
+        st.session_state["rerun_now"] = True
+        st.stop()
+
 # Firebase setup - make sure it's initialized once
 if not firebase_admin._apps:
     service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
@@ -133,8 +140,7 @@ if "id_token" not in st.session_state:
                         st.session_state["email"] = email
                         st.session_state["user_uid"] = res["localId"]
                         st.success("You're in!")
-                        st.session_state["rerun_now"] = True
-                        st.stop()  # stop before rerun
+                        request_rerun()
                     else:
                         st.warning("Looks like you haven't verified your email yet.")
                 else:
@@ -158,8 +164,7 @@ else:
     st.sidebar.write(f"Logged in as: {st.session_state['email']}")
     if st.sidebar.button("Logout"):
         st.session_state.clear()
-        st.session_state["rerun_now"] = True
-        st.stop()  # stop before rerun
+        request_rerun()
 
     menu = st.sidebar.selectbox("Menu", ["Home", "Submit Idea", "Team Chat", "Products/Services", "Rules"])
 
@@ -173,21 +178,18 @@ else:
                     if st.button("Join Team", key=post_id):
                         join_team(post_id, st.session_state["user_uid"])
                         st.success("You joined this team!")
-                        st.session_state["rerun_now"] = True
-                        st.stop()
+                        request_rerun()
                 if post["createdBy"] == st.session_state["user_uid"]:
                     new_title = st.text_input("Edit Title", value=post["title"], key=f"title_{post_id}")
                     new_desc = st.text_area("Edit Description", value=post["description"], key=f"desc_{post_id}")
                     if st.button("Update Idea", key=f"update_{post_id}"):
                         update_idea(post_id, new_title, new_desc)
                         st.success("Idea updated!")
-                        st.session_state["rerun_now"] = True
-                        st.stop()
+                        request_rerun()
                     if st.button("Delete Idea", key=f"delete_{post_id}"):
                         delete_idea(post_id)
                         st.success("Idea deleted!")
-                        st.session_state["rerun_now"] = True
-                        st.stop()
+                        request_rerun()
 
     elif menu == "Submit Idea":
         st.header("Got an Idea?")
@@ -197,8 +199,7 @@ else:
             if title and description:
                 post_idea(title, description, st.session_state["user_uid"])
                 st.success("Your idea is posted!")
-                st.session_state["rerun_now"] = True
-                st.stop()
+                request_rerun()
             else:
                 st.warning("Make sure to fill both the title and description!")
 
@@ -246,8 +247,7 @@ else:
                     "timestamp": datetime.datetime.utcnow()
                 })
                 st.success("Sent! Scroll to see your message.")
-                st.session_state["rerun_now"] = True
-                st.stop()
+                request_rerun()
 
     elif menu == "Products/Services":
         st.header("Products and Services")
@@ -275,7 +275,7 @@ else:
                             "createdAt": datetime.datetime.utcnow()
                         })
                         st.success("Product uploaded successfully!")
-                        st.experimental_rerun()
+                        request_rerun()
                     else:
                         st.warning("Please provide both title and description for the product.")
 
@@ -297,7 +297,7 @@ else:
                             "volunteers": []
                         })
                         st.success("Service created successfully!")
-                        st.experimental_rerun()
+                        request_rerun()
                     else:
                         st.warning("Please provide both title and description for the service.")
 
@@ -322,10 +322,11 @@ else:
                                     volunteers.append(st.session_state["user_uid"])
                                     db.collection("products_services").document(item_id).update({"volunteers": volunteers})
                                     st.success("You've joined this service as a volunteer!")
-                                    st.experimental_rerun()
+                                    request_rerun()
                             else:
                                 st.info("You are already a volunteer for this service.")
                         st.markdown("---")
 
 # Close main div container
 st.markdown('</div>', unsafe_allow_html=True)
+
