@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for professional UI with dark text
+# Custom CSS for professional UI with improved readability
 st.markdown(
     """
     <style>
@@ -62,13 +62,12 @@ st.markdown(
     /* Background */
     .main {
         background-color: #f8f9fa;
-        color: #343a40;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    /* Dark text for all content */
+    /* Improved readability for both modes */
     body, h1, h2, h3, h4, h5, h6, p, div, span {
-        color: #333 !important;
+        color: #4a4a4a !important;  /* Neutral gray for better contrast */
     }
     
     /* Headers */
@@ -142,7 +141,6 @@ st.markdown(
         margin: 15px 0;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         border: 1px solid #e9ecef;
-        color: #333 !important;
     }
     .volunteer-badge {
         background: #198754;
@@ -170,7 +168,6 @@ st.markdown(
         padding: 10px;
         margin: 10px 0;
         border-radius: 0 8px 8px 0;
-        color: #333 !important;
     }
     .home-feature {
         text-align: center;
@@ -186,7 +183,6 @@ st.markdown(
         flex-direction: column;
         justify-content: space-between;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
-        color: #333 !important;
     }
     .home-feature:hover {
         transform: translateY(-5px);
@@ -202,13 +198,11 @@ st.markdown(
     .home-feature h3 {
         font-size: 1.3rem;
         margin: 10px 0;
-        color: #212529 !important;
         min-height: 3rem;
     }
     .home-feature p {
         font-size: 1rem;
         line-height: 1.4;
-        color: #495057 !important;
         margin-bottom: 0;
         flex-grow: 1;
         display: flex;
@@ -223,7 +217,6 @@ st.markdown(
         margin: 20px 0;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         text-align: center;
-        color: #333 !important;
     }
     .feature-container {
         display: flex;
@@ -486,7 +479,7 @@ if "id_token" not in st.session_state:
     <div class="home-container" style="text-align: center;">
         <h1 style="color: #0d6efd;">UniteSphere</h1>
         <h3>Team Collaboration Platform</h3>
-        <p style="font-size: 1.2rem; max-width: 800px; margin: 20px auto; color: #333;">
+        <p style="font-size: 1.2rem; max-width: 800px; margin: 20px auto;">
             Where developers, designers, and innovators come together to bring ideas to life
         </p>
     </div>
@@ -898,7 +891,7 @@ elif st.session_state.current_page == "Products & Services":
 elif st.session_state.current_page == "Rules":
     st.header("Community Guidelines")
     st.markdown("""
-    <div style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); color: #333;">
+    <div style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
         <ul style="font-size: 1.1rem;">
             <li style="margin: 10px 0;"><strong>Respect others</strong>: Treat all community members with courtesy</li>
             <li style="margin: 10px 0;"><strong>No spamming</strong>: Keep content relevant and valuable</li>
