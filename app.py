@@ -8,96 +8,84 @@ from firebase_admin import credentials, firestore
 st.markdown(
     """
     <style>
+    /* Import Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
 
-    /* Background and font */
+    /* Main background with subtle gradient */
     .main {
-        background: linear-gradient(135deg, #2a1a4a, #1e1b2c);
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
         font-family: 'Poppins', sans-serif;
-        color: #e0e0e0;
-        padding: 30px 60px;
-        min-height: 100vh;
+        color: #333333;
+        padding: 20px 40px;
     }
 
-    /* Headers */
+    /* Headers - bold, vibrant blue */
     h1, h2, h3 {
-        color: #90caf9; /* Light Blue */
+        color: #2c3e50;
         font-weight: 700;
-        text-shadow: 1px 1px 4px #0d0d24;
+        text-shadow: 1px 1px 1px #fff;
     }
 
-    /* Buttons */
+    /* Buttons - gradient with rounded corners */
     div.stButton > button {
-        background: linear-gradient(45deg, #3949ab, #1e88e5);
-        color: #e3f2fd;
+        background: linear-gradient(45deg, #11998e, #38ef7d);
+        color: white;
         font-weight: 700;
-        border-radius: 14px;
-        padding: 14px 36px;
+        border-radius: 12px;
+        padding: 12px 30px;
         font-size: 18px;
-        box-shadow: 0 6px 15px rgba(30,136,229,0.7);
+        box-shadow: 0 4px 12px rgba(56,239,125,0.6);
         transition: background 0.3s ease, box-shadow 0.3s ease;
     }
     div.stButton > button:hover {
-        background: linear-gradient(45deg, #1e88e5, #3949ab);
-        box-shadow: 0 8px 25px rgba(57,73,171,0.9);
+        background: linear-gradient(45deg, #38ef7d, #11998e);
+        box-shadow: 0 6px 20px rgba(17,153,142,0.8);
         cursor: pointer;
     }
 
-    /* Inputs */
+    /* Inputs and textareas */
     input[type="text"], input[type="password"], textarea {
-        border: 2px solid #3949ab !important;
-        border-radius: 14px !important;
-        padding: 14px !important;
-        font-size: 18px !important;
+        border: 2px solid #11998e !important;
+        border-radius: 10px !important;
+        padding: 12px !important;
+        font-size: 16px !important;
         font-family: 'Poppins', sans-serif !important;
-        background: #2e2a4a;
-        color: #e0e0e0;
-        box-shadow: 0 4px 14px rgba(57,73,171,0.6);
-        transition: border-color 0.3s ease, background 0.3s ease;
+        box-shadow: 0 2px 8px rgba(17,153,142,0.3);
+        transition: border-color 0.3s ease;
     }
     input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
-        border-color: #90caf9 !important;
-        background: #3e3a65 !important;
+        border-color: #38ef7d !important;
         outline: none !important;
-        box-shadow: 0 0 12px #90caf9 !important;
+        box-shadow: 0 0 8px #38ef7d !important;
     }
 
-    /* Sidebar */
+    /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #283593, #1a237e);
-        color: #c5cae9;
+        background: linear-gradient(180deg, #11998e, #38ef7d);
+        color: white;
         font-family: 'Poppins', sans-serif;
     }
-    [data-testid="stSidebar"] .css-1d391kg, 
+    [data-testid="stSidebar"] .css-1d391kg {
+        color: white;
+    }
     [data-testid="stSidebar"] .css-1v3fvcr {
-        color: #c5cae9;
+        color: white;
     }
 
-    /* Scrollbars */
+    /* Scrollbar styling for chat container */
     .stContainer > div {
         scrollbar-width: thin;
-        scrollbar-color: #3949ab #1a237e;
+        scrollbar-color: #11998e #f0f0f0;
     }
     .stContainer > div::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
     }
     .stContainer > div::-webkit-scrollbar-track {
-        background: #1a237e;
+        background: #f0f0f0;
     }
     .stContainer > div::-webkit-scrollbar-thumb {
-        background-color: #3949ab;
-        border-radius: 6px;
-    }
-
-    /* Links */
-    a, a:visited {
-        color: #82b1ff;
-        font-weight: 600;
-        text-decoration: none;
-    }
-    a:hover {
-        text-decoration: underline;
-        color: #448aff;
+        background-color: #11998e;
+        border-radius: 3px;
     }
     </style>
     """,
