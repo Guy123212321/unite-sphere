@@ -5,93 +5,42 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# At the very top, after st.set_page_config
 st.markdown(
     """
     <style>
-    /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
-
-    /* Main background with subtle gradient */
+    /* Background */
     .main {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-        font-family: 'Poppins', sans-serif;
-        color: #333333;
-        padding: 20px 40px;
+        background-color: #e6f2ff;
     }
-
-    /* Headers - bold, vibrant blue */
+    /* Headers */
     h1, h2, h3 {
-        color: #2c3e50;
-        font-weight: 700;
-        text-shadow: 1px 1px 1px #fff;
+        color: #0b3d91;
+        font-family: 'Arial Black', Gadget, sans-serif;
     }
-
-    /* Buttons - gradient with rounded corners */
+    /* Buttons */
     div.stButton > button {
-        background: linear-gradient(45deg, #11998e, #38ef7d);
+        background: linear-gradient(45deg, #6a11cb 0%, #2575fc 100%);
         color: white;
-        font-weight: 700;
-        border-radius: 12px;
-        padding: 12px 30px;
-        font-size: 18px;
-        box-shadow: 0 4px 12px rgba(56,239,125,0.6);
-        transition: background 0.3s ease, box-shadow 0.3s ease;
+        font-weight: bold;
+        border-radius: 10px;
+        padding: 8px 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: background 0.3s ease;
     }
     div.stButton > button:hover {
-        background: linear-gradient(45deg, #38ef7d, #11998e);
-        box-shadow: 0 6px 20px rgba(17,153,142,0.8);
-        cursor: pointer;
+        background: linear-gradient(45deg, #2575fc 0%, #6a11cb 100%);
     }
-
-    /* Inputs and textareas */
+    /* Text Inputs */
     input[type="text"], input[type="password"], textarea {
-        border: 2px solid #11998e !important;
-        border-radius: 10px !important;
-        padding: 12px !important;
-        font-size: 16px !important;
-        font-family: 'Poppins', sans-serif !important;
-        box-shadow: 0 2px 8px rgba(17,153,142,0.3);
-        transition: border-color 0.3s ease;
-    }
-    input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
-        border-color: #38ef7d !important;
-        outline: none !important;
-        box-shadow: 0 0 8px #38ef7d !important;
-    }
-
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #11998e, #38ef7d);
-        color: white;
-        font-family: 'Poppins', sans-serif;
-    }
-    [data-testid="stSidebar"] .css-1d391kg {
-        color: white;
-    }
-    [data-testid="stSidebar"] .css-1v3fvcr {
-        color: white;
-    }
-
-    /* Scrollbar styling for chat container */
-    .stContainer > div {
-        scrollbar-width: thin;
-        scrollbar-color: #11998e #f0f0f0;
-    }
-    .stContainer > div::-webkit-scrollbar {
-        width: 6px;
-    }
-    .stContainer > div::-webkit-scrollbar-track {
-        background: #f0f0f0;
-    }
-    .stContainer > div::-webkit-scrollbar-thumb {
-        background-color: #11998e;
-        border-radius: 3px;
+        border: 2px solid #2575fc !important;
+        border-radius: 8px;
+        padding: 8px;
     }
     </style>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
-
 
 # Initialize session flags only once
 if "rerun_now" not in st.session_state:
