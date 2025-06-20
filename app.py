@@ -175,19 +175,46 @@ st.markdown(
     .home-feature {
         text-align: center;
         margin: 20px;
-        padding: 20px;
-        border-radius: 10px;
+        padding: 25px 15px;
+        border-radius: 12px;
         background: white;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.08);
         flex: 1;
         min-width: 250px;
+        min-height: 250px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
         color: #333 !important;
     }
+    .home-feature:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+    }
     .home-feature-icon {
-        font-size: 3rem;
+        font-size: 3.5rem;
         color: #0d6efd;
         font-weight: bold;
         margin-bottom: 15px;
+        flex-shrink: 0;
+    }
+    .home-feature h3 {
+        font-size: 1.3rem;
+        margin: 10px 0;
+        color: #212529 !important;
+        min-height: 3rem;
+    }
+    .home-feature p {
+        font-size: 1rem;
+        line-height: 1.4;
+        color: #495057 !important;
+        margin-bottom: 0;
+        flex-grow: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 5px;
     }
     .home-container {
         background: white;
@@ -481,10 +508,10 @@ if "id_token" not in st.session_state:
     for i, feature in enumerate(features):
         with cols[i % 3]:
             st.markdown(f"""
-            <div class="home-feature" style="height: 200px;">
+            <div class="home-feature">
                 <div class="home-feature-icon">{feature['icon']}</div>
-                <h3 style="color: #333;">{feature['title']}</h3>
-                <p style="color: #333;">{feature['desc']}</p>
+                <h3>{feature['title']}</h3>
+                <p>{feature['desc']}</p>
             </div>
             """, unsafe_allow_html=True)
     
