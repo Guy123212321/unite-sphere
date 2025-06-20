@@ -102,6 +102,36 @@ st.markdown(
     }
     </style>
     """,
+    /* Subtle animated gradient background */
+.main {
+  background: linear-gradient(270deg, #0d0f14, #121619, #0d0f14);
+  background-size: 600% 600%;
+  animation: gradientShift 30s ease infinite;
+  position: relative;
+  z-index: 0;
+}
+
+/* Faint grid overlay */
+.main::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    linear-gradient(rgba(0,255,231,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,231,0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: -1;
+  mix-blend-mode: screen;
+}
+
+/* Keyframes for slow background gradient shift */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
     unsafe_allow_html=True,
 )
 
