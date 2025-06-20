@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for professional UI
+# Custom CSS for professional UI with dark text
 st.markdown(
     """
     <style>
@@ -66,9 +66,14 @@ st.markdown(
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
+    /* Dark text for all content */
+    body, h1, h2, h3, h4, h5, h6, p, div, span {
+        color: #333 !important;
+    }
+    
     /* Headers */
     h1, h2, h3 {
-        color: #0d6efd;
+        color: #0d6efd !important;
         font-family: 'Arial', sans-serif;
         border-bottom: 2px solid #0d6efd;
         padding-bottom: 8px;
@@ -95,7 +100,7 @@ st.markdown(
         border-radius: 6px;
         padding: 8px;
         background-color: white;
-        color: #495057;
+        color: #495057 !important;
     }
     /* Select boxes */
     div[role="listbox"] {
@@ -119,14 +124,14 @@ st.markdown(
         border-left: 4px solid #0d6efd;
     }
     .stats-card h3 {
-        color: #6c757d;
+        color: #6c757d !important;
         margin-top: 0;
         font-size: 1rem;
     }
     .stats-card .value {
         font-size: 2rem;
         font-weight: bold;
-        color: #0d6efd;
+        color: #0d6efd !important;
         text-align: center;
     }
     /* Product cards */
@@ -137,6 +142,7 @@ st.markdown(
         margin: 15px 0;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         border: 1px solid #e9ecef;
+        color: #333 !important;
     }
     .volunteer-badge {
         background: #198754;
@@ -164,6 +170,7 @@ st.markdown(
         padding: 10px;
         margin: 10px 0;
         border-radius: 0 8px 8px 0;
+        color: #333 !important;
     }
     .home-feature {
         text-align: center;
@@ -174,6 +181,7 @@ st.markdown(
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         flex: 1;
         min-width: 250px;
+        color: #333 !important;
     }
     .home-feature-icon {
         font-size: 3rem;
@@ -188,6 +196,7 @@ st.markdown(
         margin: 20px 0;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         text-align: center;
+        color: #333 !important;
     }
     .feature-container {
         display: flex;
@@ -450,7 +459,7 @@ if "id_token" not in st.session_state:
     <div class="home-container" style="text-align: center;">
         <h1 style="color: #0d6efd;">UniteSphere</h1>
         <h3>Team Collaboration Platform</h3>
-        <p style="font-size: 1.2rem; max-width: 800px; margin: 20px auto;">
+        <p style="font-size: 1.2rem; max-width: 800px; margin: 20px auto; color: #333;">
             Where developers, designers, and innovators come together to bring ideas to life
         </p>
     </div>
@@ -474,8 +483,8 @@ if "id_token" not in st.session_state:
             st.markdown(f"""
             <div class="home-feature" style="height: 200px;">
                 <div class="home-feature-icon">{feature['icon']}</div>
-                <h3>{feature['title']}</h3>
-                <p>{feature['desc']}</p>
+                <h3 style="color: #333;">{feature['title']}</h3>
+                <p style="color: #333;">{feature['desc']}</p>
             </div>
             """, unsafe_allow_html=True)
     
@@ -862,7 +871,7 @@ elif st.session_state.current_page == "Products & Services":
 elif st.session_state.current_page == "Rules":
     st.header("Community Guidelines")
     st.markdown("""
-    <div style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+    <div style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.05); color: #333;">
         <ul style="font-size: 1.1rem;">
             <li style="margin: 10px 0;"><strong>Respect others</strong>: Treat all community members with courtesy</li>
             <li style="margin: 10px 0;"><strong>No spamming</strong>: Keep content relevant and valuable</li>
