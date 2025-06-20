@@ -104,6 +104,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 # Initialize session flags only once
 if "rerun_now" not in st.session_state:
     st.session_state["rerun_now"] = False
