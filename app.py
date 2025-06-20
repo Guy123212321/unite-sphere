@@ -53,6 +53,15 @@ def post_idea(title, description, user_uid):
         "team": [user_uid]
     })
 
+def update_idea(post_id, new_title, new_description):
+    db.collection("posts").document(post_id).update({
+        "title": new_title,
+        "description": new_description
+    })
+
+def delete_idea(post_id):
+    db.collection("posts").document(post_id).delete()
+
 def get_all_posts():
     posts = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
     return [(doc.id, doc.to_dict()) for doc in posts]
@@ -126,6 +135,17 @@ else:
                         join_team(post_id, st.session_state["user_uid"])
                         st.success("You joined this team!")
                         st.experimental_rerun()
+                if post["createdBy"] == st.session_state["user_uid"]:
+                    new_title = st.text_input("Edit Title", value=post["title"], key=f"title_{post_id}")
+                    new_desc = st.text_area("Edit Description", value=post["description"], key=f"desc_{post_id}")
+                    if st.button("Update Idea", key=f"update_{post_id}"):
+                        update_idea(post_id, new_title, new_desc)
+                        st.success("Idea updated!")
+                        st.experimental_rerun()
+                    if st.button("Delete Idea", key=f"delete_{post_id}"):
+                        delete_idea(post_id)
+                        st.success("Idea deleted!")
+                        st.experimental_rerun()
 
     elif menu == "Submit Idea":
         st.header("Got an Idea?")
@@ -150,34 +170,39 @@ else:
 
     elif menu == "Team Chat":
         st.header("Team Chat 💬")
-
         user_posts = [(pid, p["title"]) for pid, p in get_all_posts() if st.session_state["user_uid"] in p["team"]]
 
         if not user_posts:
             st.info("You're not in any team yet! Join a team to chat.")
         else:
-            selected = st.selectbox(
-                "Choose a team to chat in:",
-                user_posts,
-                format_func=lambda x: x[1],
-                key="chat_team_select"
-            )
+            selected = st.selectbox("Choose a team to chat in:", user_posts, format_func=lambda x: x[1], key="chat_team_select")
             selected_post_id, selected_title = selected
 
             st.subheader(f"Chat Room for: {selected_title}")
             chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
 
-            with st.container():
-                chat_messages = chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream()
-                for msg in chat_messages:
-                    msg_data = msg.to_dict()
-                    sender = msg_data.get("sender", "Unknown")
-                    content = msg_data.get("message", "")
-                    st.markdown(f"**{sender}**: {content}")
+            # Team members
+            team_doc = db.collection("posts").document(selected_post_id).get()
+            if team_doc.exists:
+                team_data = team_doc.to_dict().get("team", [])
+                st.markdown("**Team Members:**")
+                for member in team_data:
+                    st.markdown(f"- {member}")
+
+            chat_messages = list(chat_ref.order_by("timestamp", direction=firestore.Query.ASCENDING).stream())
+            for msg in chat_messages:
+                msg_data = msg.to_dict()
+                sender = msg_data.get("sender", "Unknown")
+                content = msg_data.get("message", "")
+                st.markdown(f"**{sender}**: {content}")
+                if sender == st.session_state["email"]:
+                    if st.button("Delete", key=f"del_{msg.id}"):
+                        chat_ref.document(msg.id).delete()
+                        st.success("Message deleted!")
+                        st.experimental_rerun()
 
             st.markdown("---")
             new_msg = st.text_input("Your message", key=f"chat_input_{selected_post_id}")
-
             send = st.button("Send Message", key=f"send_button_{selected_post_id}")
             if send and new_msg.strip():
                 chat_ref.add({
@@ -186,8 +211,4 @@ else:
                     "timestamp": datetime.datetime.utcnow()
                 })
                 st.success("Sent! Scroll to see your message.")
-
-                    "message": new_msg.strip(),
-                    "timestamp": datetime.datetime.utcnow()
-                })
-                st.success("Sent! Scroll to see your message.")
+                st.experimental_rerun()
