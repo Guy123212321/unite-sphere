@@ -146,16 +146,25 @@ if not firebase_admin._apps:
     # Create credentials from the dictionary
     cred = credentials.Certificate(key_dict)
     
+    # Get the storage bucket name from project ID
+    bucket_name = f"{key_dict['project_id']}.appspot.com"
+    
     # Initialize Firebase app with credentials and storage bucket
     firebase_admin.initialize_app(cred, {
-        'storageBucket': f"{key_dict['project_id']}.appspot.com"
+        'storageBucket': bucket_name
     })
+    st.session_state["bucket_name"] = bucket_name
 
 # Set up Firestore client and API key
 db = firestore.client()
 FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
-# Get storage bucket explicitly
-FIREBASE_BUCKET = storage.bucket()
+
+# Get storage bucket explicitly using the stored bucket name
+if "bucket_name" in st.session_state:
+    FIREBASE_BUCKET = storage.bucket(st.session_state["bucket_name"])
+else:
+    # Fallback to default bucket if session state doesn't have it
+    FIREBASE_BUCKET = storage.bucket()
 
 # Auth functions
 def signup(email, password):
@@ -347,9 +356,13 @@ else:
                 
                 # Project details
                 if post.get("deadline"):
-                    days_left = (datetime.datetime.strptime(post["deadline"], "%Y-%m-%d") - datetime.datetime.now()).days
-                    deadline_status = f"⏰ Deadline: {post['deadline']} ({days_left} days left)"
-                    st.write(deadline_status)
+                    try:
+                        deadline_date = datetime.datetime.strptime(post["deadline"], "%Y-%m-%d")
+                        days_left = (deadline_date - datetime.datetime.now()).days
+                        deadline_status = f"⏰ Deadline: {post['deadline']} ({days_left} days left)"
+                        st.write(deadline_status)
+                    except:
+                        st.write(f"⏰ Deadline: {post['deadline']}")
                 
                 if post.get("contact"):
                     st.write(f"📞 Contact: {post['contact']}")
@@ -387,15 +400,21 @@ else:
                     # Deadline and contact
                     col1, col2 = st.columns(2)
                     with col1:
+                        try:
+                            deadline_value = datetime.datetime.strptime(post.get("deadline", str(datetime.date.today())), "%Y-%m-%d")
+                        except:
+                            deadline_value = datetime.datetime.now()
                         new_deadline = st.date_input("Edit Deadline", 
-                                                    value=datetime.datetime.strptime(post.get("deadline", str(datetime.date.today())), "%Y-%m-%d"), 
+                                                    value=deadline_value, 
                                                     key=f"deadline_{post_id}")
                     with col2:
                         new_contact = st.text_input("Edit Contact", value=post.get("contact", ""), key=f"contact_{post_id}")
                     
                     # Status
                     status_options = ["Planning", "In Progress", "Testing", "Completed", "On Hold"]
-                    new_status = st.selectbox("Project Status", status_options, index=status_options.index(post.get("status", "Planning")), key=f"status_{post_id}")
+                    current_status = post.get("status", "Planning")
+                    status_index = status_options.index(current_status) if current_status in status_options else 0
+                    new_status = st.selectbox("Project Status", status_options, index=status_index, key=f"status_{post_id}")
                     
                     # Milestone management
                     st.subheader("Manage Milestones")
