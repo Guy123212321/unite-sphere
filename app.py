@@ -403,9 +403,7 @@ def post_chat_message(chat_ref, message, sender):
         st.error(f"Failed to send message: {e}")
         return False
 
-# ... (keep all your Firebase setup and helper functions above this point)
-
-# UI starts - REPLACE EVERYTHING FROM HERE DOWN
+# UI starts
 st.markdown('<div class="main">', unsafe_allow_html=True)
 
 # Initialize session state for current page
@@ -443,7 +441,7 @@ if "id_token" in st.session_state:
     st.sidebar.write(f"Logged in as: {st.session_state['email']}")
     if st.sidebar.button("Logout", use_container_width=True, key="logout_button"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()
 
 # Home Page - Show login/signup when not logged in
 if "id_token" not in st.session_state:
@@ -501,7 +499,7 @@ if "id_token" not in st.session_state:
                         st.session_state["user_uid"] = res["localId"]
                         st.session_state["current_page"] = "Project Ideas"
                         st.success("Login successful")
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.warning("Please verify your email first")
                 else:
@@ -570,14 +568,14 @@ elif st.session_state.current_page == "Project Ideas":
                             if st.button(f"Mark Complete", key=f"complete_{post_id}_{i}"):
                                 mark_milestone_complete(post_id, i)
                                 st.success("Milestone marked as complete!")
-                                st.experimental_rerun()
+                                st.rerun()
             
             # Join team button
             if st.session_state["user_uid"] not in safe_get(post, "team", []):
                 if st.button("Join Team", key=f"join_{post_id}"):
                     join_team(post_id, st.session_state["user_uid"])
                     st.success("You joined this team")
-                    st.experimental_rerun()
+                    st.rerun()
             
             # Idea owner controls
             if safe_get(post, "createdBy") == st.session_state["user_uid"]:
@@ -627,13 +625,13 @@ elif st.session_state.current_page == "Project Ideas":
                 if st.button("Update Project", key=f"update_{post_id}"):
                     update_idea(post_id, new_title, new_desc, str(new_deadline), new_status, new_milestones, new_contact)
                     st.success("Project updated")
-                    st.experimental_rerun()
+                    st.rerun()
                 
                 # Delete button
                 if st.button("Delete Project", key=f"delete_{post_id}", type="secondary"):
                     delete_idea(post_id)
                     st.success("Project deleted")
-                    st.experimental_rerun()
+                    st.rerun()
 
 # Submit Idea Page
 elif st.session_state.current_page == "Submit Idea":
@@ -662,7 +660,7 @@ elif st.session_state.current_page == "Submit Idea":
         if title and description:
             post_idea(title, description, st.session_state["user_uid"], str(deadline), milestones, contact)
             st.success("Your project has been posted")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.warning("Please fill both title and description fields")
 
@@ -715,7 +713,7 @@ elif st.session_state.current_page == "Team Chat":
                 if new_msg.strip():
                     if post_chat_message(chat_ref, new_msg, st.session_state["email"]):
                         st.success("Message sent")
-                        st.experimental_rerun()
+                        st.rerun()
         with col2:
             if st.button("Clear Chat", type="secondary", key=f"clear_chat_{selected_post_id}"):
                 st.warning("This feature is currently under development")
@@ -758,7 +756,7 @@ elif st.session_state.current_page == "Products & Services":
                         "createdAt": datetime.datetime.utcnow()
                     })
                     st.success("Product submitted to marketplace")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.warning("Please fill all required fields")
         
@@ -786,7 +784,7 @@ elif st.session_state.current_page == "Products & Services":
                         "volunteers": []
                     })
                     st.success("Service submitted to marketplace")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.warning("Please fill all required fields")
         
@@ -846,7 +844,7 @@ elif st.session_state.current_page == "Products & Services":
                                     volunteers.append(st.session_state["user_uid"])
                                     db.collection("products_services").document(item_id).update({"volunteers": volunteers})
                                     st.success("You're now a volunteer")
-                                    st.experimental_rerun()
+                                    st.rerun()
                             else:
                                 st.info("You're already volunteering for this service")
                         
@@ -855,7 +853,7 @@ elif st.session_state.current_page == "Products & Services":
                             if st.button("Delete", key=f"delete_{item_id}_{idx}", type="secondary"):
                                 delete_product(item_id)
                                 st.success("Item deleted")
-                                st.experimental_rerun()
+                                st.rerun()
                         
                         st.markdown("</div>", unsafe_allow_html=True)
                         st.markdown("---")
@@ -963,7 +961,7 @@ elif st.session_state.current_page == "Admin":
                 if st.button("Delete Idea", key=f"del_idea_{idea.id}", type="secondary"):
                     db.collection("posts").document(idea.id).delete()
                     st.success("Idea deleted")
-                    st.experimental_rerun()
+                    st.rerun()
                 
                 st.markdown("---")
         
@@ -978,7 +976,7 @@ elif st.session_state.current_page == "Admin":
             if admin_title and admin_desc:
                 post_idea(admin_title, admin_desc, "admin", str(datetime.date.today()), [], "admin@example.com")
                 st.success("Admin idea posted")
-                st.experimental_rerun()
+                st.rerun()
     
     # Tab 2: Products & Services Management
     with admin_tabs[1]:
@@ -1019,7 +1017,7 @@ elif st.session_state.current_page == "Admin":
                 if st.button("Delete Item", key=f"del_item_{item.id}", type="secondary"):
                     db.collection("products_services").document(item.id).delete()
                     st.success("Item deleted")
-                    st.experimental_rerun()
+                    st.rerun()
                 
                 st.markdown("---")
         
@@ -1052,7 +1050,7 @@ elif st.session_state.current_page == "Admin":
                     "volunteers": []
                 })
                 st.success("Item submitted as admin")
-                st.experimental_rerun()
+                st.rerun()
     
     # Tab 3: User Management (Placeholder)
     with admin_tabs[2]:
