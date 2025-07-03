@@ -258,8 +258,11 @@ if not firebase_admin._apps:
         # Create credentials from the dictionary
         cred = credentials.Certificate(key_dict)
         
-        # Get the storage bucket name from project ID
-        bucket_name = f"{key_dict['project_id']}.appspot.com"
+        # Get project ID and format bucket name correctly
+        project_id = key_dict['project_id']
+        # Replace hyphens with dots in bucket name
+        formatted_project_id = project_id.replace('-', '.')
+        bucket_name = f"{formatted_project_id}.appspot.com"
         
         # Initialize Firebase app with credentials and storage bucket
         firebase_admin.initialize_app(cred, {
@@ -274,11 +277,10 @@ FIREBASE_API_KEY = st.secrets["FIREBASE_API_KEY"]
 
 # Get storage bucket explicitly using the bucket name
 try:
-    # Load Firebase Service Account from secrets again to get bucket name
-    service_account_json = st.secrets["FIREBASE_SERVICE_ACCOUNT"]
-    key_dict = json.loads(service_account_json)
-    bucket_name = f"{key_dict['project_id']}.appspot.com"
-    FIREBASE_BUCKET = storage.bucket(bucket_name)
+    if firebase_admin._apps:
+        FIREBASE_BUCKET = storage.bucket()
+    else:
+        FIREBASE_BUCKET = None
 except Exception as e:
     st.error(f"Failed to initialize Firebase Storage: {e}")
     FIREBASE_BUCKET = None
