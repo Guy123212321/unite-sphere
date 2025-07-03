@@ -6,6 +6,9 @@ import firebase_admin
 from firebase_admin import credentials, firestore, storage
 import uuid
 from collections import defaultdict
+import plotly.express as px
+import pandas as pd
+import time
 
 # Define admin emails
 ADMINS = ["nameer.ansaf@gmail.com", "anvinimithk2505@gmail.com"]
@@ -241,6 +244,77 @@ st.markdown(
         justify-content: center;
         margin-bottom: 20px;
     }
+    /* Mobile responsiveness */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1rem;
+        }
+        .home-feature {
+            min-width: 100%;
+            margin: 10px 0;
+        }
+        .stats-card {
+            padding: 15px;
+        }
+        .stats-card .value {
+            font-size: 1.5rem;
+        }
+    }
+    /* Task cards */
+    .task-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-left: 3px solid #0d6efd;
+    }
+    .task-card.completed {
+        border-left-color: #198754;
+        opacity: 0.8;
+    }
+    .tag {
+        display: inline-block;
+        background: #e6f7ff;
+        color: #0d6efd;
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 0.8rem;
+        margin: 2px;
+    }
+    .bookmark-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        z-index: 10;
+    }
+    .notification-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #dc3545;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: bold;
+    }
+    .user-card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid #e9ecef;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -312,8 +386,13 @@ def check_email_verified(id_token):
     res = requests.post(url, json={"idToken": id_token}).json()
     return res.get("users", [{}])[0].get("emailVerified", False)
 
+def reset_password(email):
+    url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={FIREBASE_API_KEY}"
+    payload = {"requestType": "PASSWORD_RESET", "email": email}
+    return requests.post(url, json=payload).json()
+
 # Firestore functions
-def post_idea(title, description, user_uid, deadline, milestones, contact):
+def post_idea(title, description, user_uid, deadline, milestones, contact, tags=None, skills_needed=None):
     idea_data = {
         "title": title,
         "description": description,
@@ -323,17 +402,22 @@ def post_idea(title, description, user_uid, deadline, milestones, contact):
         "deadline": deadline,
         "contact": contact,
         "status": "Planning",
-        "milestones": milestones or []
+        "milestones": milestones or [],
+        "tags": tags or [],
+        "skills_needed": skills_needed or [],
+        "bookmarks": []
     }
     return db.collection("posts").add(idea_data)
 
-def update_idea(post_id, new_title, new_description, new_deadline, new_status, new_milestones, new_contact):
+def update_idea(post_id, new_title, new_description, new_deadline, new_status, new_milestones, new_contact, new_tags, new_skills):
     update_data = {
         "title": new_title,
         "description": new_description,
         "deadline": new_deadline,
         "status": new_status,
-        "contact": new_contact
+        "contact": new_contact,
+        "tags": new_tags,
+        "skills_needed": new_skills
     }
     if new_milestones is not None:
         update_data["milestones"] = new_milestones
@@ -420,14 +504,98 @@ def mark_milestone_complete(post_id, milestone_index):
             milestones[milestone_index]["completed"] = True
             ref.update({"milestones": milestones})
 
+# NEW: Task management functions
+def add_task(post_id, task):
+    ref = db.collection("posts").document(post_id)
+    ref.update({"tasks": firestore.ArrayUnion([task])})
+
+def update_task(post_id, task_index, updated_task):
+    ref = db.collection("posts").document(post_id)
+    doc = ref.get()
+    if doc.exists:
+        data = doc.to_dict()
+        tasks = safe_get(data, "tasks", [])
+        if task_index < len(tasks):
+            tasks[task_index] = updated_task
+            ref.update({"tasks": tasks})
+
+# NEW: Bookmark functions
+def toggle_bookmark(post_id, user_uid):
+    ref = db.collection("posts").document(post_id)
+    doc = ref.get()
+    if doc.exists:
+        data = doc.to_dict()
+        bookmarks = safe_get(data, "bookmarks", [])
+        if user_uid in bookmarks:
+            bookmarks.remove(user_uid)
+        else:
+            bookmarks.append(user_uid)
+        ref.update({"bookmarks": bookmarks})
+
+# NEW: User profile functions
+def get_user_profile(user_uid):
+    doc = db.collection("profiles").document(user_uid).get()
+    if doc.exists:
+        return doc.to_dict()
+    return None
+
+def update_user_profile(user_uid, profile_data):
+    db.collection("profiles").document(user_uid).set(profile_data, merge=True)
+
+# NEW: Notification functions
+def create_notification(user_uid, message, link=None):
+    notification = {
+        "message": message,
+        "timestamp": datetime.datetime.utcnow(),
+        "read": False,
+        "link": link
+    }
+    db.collection("notifications").document(user_uid).update({
+        "items": firestore.ArrayUnion([notification])
+    })
+
+def mark_notification_read(user_uid, index):
+    doc = db.collection("notifications").document(user_uid).get()
+    if doc.exists:
+        data = doc.to_dict()
+        notifications = safe_get(data, "items", [])
+        if index < len(notifications):
+            notifications[index]["read"] = True
+            db.collection("notifications").document(user_uid).set({"items": notifications})
+
+# NEW: Get all tags from projects
+def get_all_tags():
+    tags = set()
+    posts = db.collection("posts").stream()
+    for post in posts:
+        data = post.to_dict()
+        for tag in safe_get(data, "tags", []):
+            tags.add(tag)
+    return sorted(tags)
+
+# NEW: Get all skills from projects
+def get_all_skills():
+    skills = set()
+    posts = db.collection("posts").stream()
+    for post in posts:
+        data = post.to_dict()
+        for skill in safe_get(data, "skills_needed", []):
+            skills.add(skill)
+    return sorted(skills)
+
 # Simplified chat system
-def post_chat_message(chat_ref, message, sender):
+def post_chat_message(chat_ref, message, sender, file_url=None):
     try:
-        chat_ref.add({
+        message_data = {
             "sender": sender,
             "message": message.strip(),
             "timestamp": datetime.datetime.utcnow()
-        })
+        }
+        if file_url:
+            message_data["file_url"] = file_url
+            message_data["file_name"] = file_url.split("/")[-1].split("?")[0]
+            
+        chat_ref.add(message_data)
         return True
     except Exception as e:
         st.error(f"Failed to send message: {e}")
@@ -439,6 +607,10 @@ st.markdown('<div class="main">', unsafe_allow_html=True)
 # Initialize session state for current page
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Project Ideas"
+
+# NEW: Initialize notification count
+if "notification_count" not in st.session_state:
+    st.session_state.notification_count = 0
 
 # Show sidebar only if logged in
 if "id_token" in st.session_state:
@@ -454,6 +626,9 @@ if "id_token" in st.session_state:
         ("Submit Idea", "✨ Pitch your project idea and build a team"),
         ("Team Chat", "💬 Collaborate with your team in real-time"),
         ("Products & Services", "🛒 Showcase and discover completed work"),
+        ("My Profile", "👤 Manage your profile and skills"),
+        ("Bookmarks", "🔖 View your saved projects"),
+        ("Notifications", "🔔 View your notifications"),
         ("Rules", "📜 Community guidelines for everyone"),
         ("Stats", "📊 Platform statistics and insights")
     ]
@@ -463,7 +638,12 @@ if "id_token" in st.session_state:
     
     # Create sidebar menu with descriptions
     for page, description in menu_options:
-        if st.sidebar.button(f"**{page}**\n{description}", use_container_width=True, key=f"menu_{page}"):
+        # Add notification badge to Notifications tab
+        badge = ""
+        if page == "Notifications" and st.session_state.notification_count > 0:
+            badge = f'<span class="notification-badge">{st.session_state.notification_count}</span>'
+        
+        if st.sidebar.button(f"**{page}** {badge}\n{description}", use_container_width=True, key=f"menu_{page}"):
             st.session_state.current_page = page
     
     # Logout button at bottom
@@ -492,8 +672,11 @@ if "id_token" not in st.session_state:
         {"icon": "✨", "title": "Submit Idea", "desc": "Pitch your project and build a team"},
         {"icon": "💬", "title": "Team Chat", "desc": "Collaborate in real-time with your team"},
         {"icon": "🛒", "title": "Marketplace", "desc": "Showcase and discover completed work"},
-        {"icon": "📜", "title": "Community Rules", "desc": "Guidelines for a productive environment"},
-        {"icon": "📊", "title": "Platform Stats", "desc": "See how our community is growing"}
+        {"icon": "👤", "title": "User Profiles", "desc": "Showcase your skills and experience"},
+        {"icon": "🔖", "title": "Bookmarks", "desc": "Save interesting projects for later"},
+        {"icon": "📊", "title": "Analytics", "desc": "Track project progress visually"},
+        {"icon": "🔔", "title": "Notifications", "desc": "Stay updated on project activities"},
+        {"icon": "📜", "title": "Community Rules", "desc": "Guidelines for a productive environment"}
     ]
     
     # Create 3 columns
@@ -512,7 +695,7 @@ if "id_token" not in st.session_state:
     # Login/Signup Section
     st.markdown("---")
     st.subheader("Get Started")
-    tab1, tab2 = st.tabs(["Login", "Sign Up"])
+    tab1, tab2, tab3 = st.tabs(["Login", "Sign Up", "Reset Password"])
 
     with tab1:
         email = st.text_input("Email", key="login_email")
@@ -538,9 +721,12 @@ if "id_token" not in st.session_state:
     with tab2:
         email = st.text_input("Email", key="signup_email")
         password = st.text_input("Password", type="password", key="signup_password")
+        confirm_password = st.text_input("Confirm Password", type="password", key="confirm_password")
         if st.button("Sign Up", use_container_width=True, key="signup_button"):
             if not email or not password:
                 st.warning("Please enter both email and password")
+            elif password != confirm_password:
+                st.warning("Passwords do not match")
             else:
                 res = signup(email, password)
                 if "idToken" in res:
@@ -549,21 +735,85 @@ if "id_token" not in st.session_state:
                 else:
                     st.error("Sign up failed. Please try again")
 
+    with tab3:
+        email = st.text_input("Email for password reset", key="reset_email")
+        if st.button("Send Reset Link", use_container_width=True, key="reset_button"):
+            if email:
+                res = reset_password(email)
+                if "email" in res:
+                    st.success("Password reset email sent. Please check your inbox.")
+                else:
+                    st.error("Failed to send reset email. Please check the email address.")
+            else:
+                st.warning("Please enter your email address")
+
 # Project Ideas Page
 elif st.session_state.current_page == "Project Ideas":
     st.header("Project Ideas")
+    
+    # NEW: Search and filter section
+    col1, col2, col3 = st.columns([3, 2, 2])
+    with col1:
+        search_query = st.text_input("Search projects", placeholder="Search by title, description, or tags")
+    with col2:
+        status_filter = st.selectbox("Status", ["All", "Planning", "In Progress", "Testing", "Completed", "On Hold"])
+    with col3:
+        tags = get_all_tags()
+        tag_filter = st.multiselect("Tags", tags)
+    
     posts = get_all_posts()
-    if not posts:
-        st.info("No project ideas found")
+    
+    # NEW: Filter posts based on search and filters
+    filtered_posts = []
     for post_id, post in posts:
+        # Apply search filter
+        if search_query:
+            search_lower = search_query.lower()
+            title = safe_get(post, 'title', '').lower()
+            desc = safe_get(post, 'description', '').lower()
+            post_tags = " ".join(safe_get(post, 'tags', [])).lower()
+            if search_lower not in title and search_lower not in desc and search_lower not in post_tags:
+                continue
+        
+        # Apply status filter
+        if status_filter != "All":
+            if safe_get(post, 'status', '') != status_filter:
+                continue
+                
+        # Apply tag filter
+        if tag_filter:
+            post_tags = safe_get(post, 'tags', [])
+            if not any(tag in post_tags for tag in tag_filter):
+                continue
+                
+        filtered_posts.append((post_id, post))
+    
+    if not filtered_posts:
+        st.info("No project ideas found matching your criteria")
+    for post_id, post in filtered_posts:
         # Safe title generation
         title = safe_get(post, 'title', 'Untitled Project')
         team_size = len(safe_get(post, 'team', []))
         status = safe_get(post, 'status', 'Active')
         
         with st.expander(f"{title} - Team: {team_size} members | Status: {status}"):
+            # NEW: Bookmark button
+            bookmarks = safe_get(post, "bookmarks", [])
+            is_bookmarked = st.session_state["user_uid"] in bookmarks
+            bookmark_icon = "❤️" if is_bookmarked else "🤍"
+            if st.button(f"{bookmark_icon}", key=f"bookmark_{post_id}"):
+                toggle_bookmark(post_id, st.session_state["user_uid"])
+                st.rerun()
+            
             st.write(safe_get(post, "description", "No description available"))
             st.caption(f"Created by: {safe_get(post, 'createdBy', 'Unknown')}")
+            
+            # NEW: Display tags
+            tags = safe_get(post, "tags", [])
+            if tags:
+                st.write("**Tags:**")
+                for tag in tags:
+                    st.markdown(f'<span class="tag">{tag}</span>', unsafe_allow_html=True)
             
             # Project details
             deadline = safe_get(post, "deadline")
@@ -580,6 +830,13 @@ elif st.session_state.current_page == "Project Ideas":
             if contact:
                 st.write(f"📞 Contact: {contact}")
             
+            # NEW: Skills needed
+            skills_needed = safe_get(post, "skills_needed", [])
+            if skills_needed:
+                st.write("**Skills Needed:**")
+                for skill in skills_needed:
+                    st.markdown(f'<span class="tag">{skill}</span>', unsafe_allow_html=True)
+            
             # Milestones section
             milestones = safe_get(post, "milestones", [])
             if milestones:
@@ -593,12 +850,36 @@ elif st.session_state.current_page == "Project Ideas":
                             unsafe_allow_html=True
                         )
                         
+                        # NEW: Progress bar for milestones
+                        progress = safe_get(milestone, "progress", 0)
+                        if progress > 0:
+                            st.progress(min(progress, 100))
+                        
                         # Mark as complete button
                         if st.session_state["user_uid"] in safe_get(post, "team", []) and not safe_get(milestone, "completed", False):
                             if st.button(f"Mark Complete", key=f"complete_{post_id}_{i}"):
                                 mark_milestone_complete(post_id, i)
                                 st.success("Milestone marked as complete!")
                                 st.rerun()
+            
+            # NEW: Task management
+            tasks = safe_get(post, "tasks", [])
+            if tasks:
+                st.subheader("Project Tasks")
+                for i, task in enumerate(tasks):
+                    completed = safe_get(task, "completed", False)
+                    with st.container():
+                        st.markdown(f"<div class='task-card {'completed' if completed else ''}'>", unsafe_allow_html=True)
+                        st.write(f"**{safe_get(task, 'title', 'Untitled Task')}**")
+                        st.caption(f"Assigned to: {safe_get(task, 'assigned_to', 'Unassigned')} | Due: {safe_get(task, 'due_date', 'No due date')}")
+                        st.write(safe_get(task, "description", "No description"))
+                        
+                        if st.session_state["user_uid"] == safe_get(post, "createdBy") or st.session_state["user_uid"] == safe_get(task, "assigned_to"):
+                            if st.button(f"{'Unmark' if completed else 'Mark'} Complete", key=f"task_{post_id}_{i}"):
+                                task["completed"] = not completed
+                                update_task(post_id, i, task)
+                                st.rerun()
+                        st.markdown("</div>", unsafe_allow_html=True)
             
             # Join team button
             if st.session_state["user_uid"] not in safe_get(post, "team", []):
@@ -632,6 +913,15 @@ elif st.session_state.current_page == "Project Ideas":
                 status_index = status_options.index(current_status) if current_status in status_options else 0
                 new_status = st.selectbox("Project Status", status_options, index=status_index, key=f"status_{post_id}")
                 
+                # NEW: Tags and skills
+                col3, col4 = st.columns(2)
+                with col3:
+                    all_tags = get_all_tags()
+                    new_tags = st.multiselect("Edit Tags", all_tags, default=safe_get(post, "tags", []), key=f"tags_{post_id}")
+                with col4:
+                    all_skills = get_all_skills()
+                    new_skills = st.multiselect("Edit Skills Needed", all_skills, default=safe_get(post, "skills_needed", []), key=f"skills_{post_id}")
+                
                 # Milestone management
                 st.subheader("Manage Milestones")
                 new_milestones = []
@@ -643,17 +933,56 @@ elif st.session_state.current_page == "Project Ideas":
                     with col1:
                         name = st.text_input(f"Milestone {i+1} Name", value=safe_get(milestone, "name", ""), key=f"milestone_name_{post_id}_{i}")
                         desc = st.text_area(f"Description", value=safe_get(milestone, "description", ""), key=f"milestone_desc_{post_id}_{i}")
+                        # NEW: Progress input
+                        progress = st.slider("Progress (%)", 0, 100, value=safe_get(milestone, "progress", 0), key=f"milestone_progress_{post_id}_{i}")
                     with col2:
                         completed = st.checkbox("Completed", value=safe_get(milestone, "completed", False), key=f"milestone_complete_{post_id}_{i}")
-                    new_milestones.append({"name": name, "description": desc, "completed": completed})
+                    new_milestones.append({"name": name, "description": desc, "completed": completed, "progress": progress})
                 
                 # Add new milestone
                 if st.button("Add New Milestone", key=f"add_milestone_{post_id}"):
-                    new_milestones.append({"name": "New Milestone", "description": "", "completed": False})
+                    new_milestones.append({"name": "New Milestone", "description": "", "completed": False, "progress": 0})
+                
+                # NEW: Task management
+                st.subheader("Manage Tasks")
+                new_tasks = []
+                existing_tasks = tasks
+                
+                for i, task in enumerate(existing_tasks):
+                    with st.expander(f"Task {i+1}: {safe_get(task, 'title', 'Untitled Task')}"):
+                        title_task = st.text_input("Title", value=safe_get(task, "title", ""), key=f"task_title_{post_id}_{i}")
+                        desc_task = st.text_area("Description", value=safe_get(task, "description", ""), key=f"task_desc_{post_id}_{i}")
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            assigned_to = st.text_input("Assigned To (User ID)", value=safe_get(task, "assigned_to", ""), key=f"task_assigned_{post_id}_{i}")
+                        with col2:
+                            due_date = st.date_input("Due Date", value=datetime.datetime.strptime(safe_get(task, "due_date", str(datetime.date.today())), "%Y-%m-%d") if "due_date" in task else datetime.date.today(), key=f"task_due_{post_id}_{i}")
+                        
+                        completed_task = st.checkbox("Completed", value=safe_get(task, "completed", False), key=f"task_completed_{post_id}_{i}")
+                        new_tasks.append({
+                            "title": title_task, 
+                            "description": desc_task, 
+                            "assigned_to": assigned_to,
+                            "due_date": str(due_date),
+                            "completed": completed_task
+                        })
+                
+                # Add new task
+                if st.button("Add New Task", key=f"add_task_{post_id}"):
+                    new_tasks.append({
+                        "title": "New Task",
+                        "description": "",
+                        "assigned_to": "",
+                        "due_date": str(datetime.date.today()),
+                        "completed": False
+                    })
                 
                 # Update button
                 if st.button("Update Project", key=f"update_{post_id}"):
-                    update_idea(post_id, new_title, new_desc, str(new_deadline), new_status, new_milestones, new_contact)
+                    update_idea(post_id, new_title, new_desc, str(new_deadline), new_status, new_milestones, new_contact, new_tags, new_skills)
+                    if new_tasks:
+                        db.collection("posts").document(post_id).update({"tasks": new_tasks})
                     st.success("Project updated")
                     st.rerun()
                 
@@ -675,6 +1004,13 @@ elif st.session_state.current_page == "Submit Idea":
     with col2:
         contact = st.text_input("Contact Information", key="new_project_contact")
     
+    # NEW: Tags and skills
+    col3, col4 = st.columns(2)
+    with col3:
+        tags = st.multiselect("Tags (optional)", get_all_tags(), key="new_project_tags")
+    with col4:
+        skills_needed = st.multiselect("Skills Needed (optional)", get_all_skills(), key="new_project_skills")
+    
     # Milestones
     st.subheader("Project Milestones")
     milestones = []
@@ -684,11 +1020,13 @@ elif st.session_state.current_page == "Submit Idea":
         st.markdown(f"### Milestone {i+1}")
         name = st.text_input(f"Name", key=f"milestone_name_{i}")
         desc = st.text_area(f"Description", key=f"milestone_desc_{i}")
-        milestones.append({"name": name, "description": desc, "completed": False})
+        # NEW: Progress input
+        progress = st.slider("Initial Progress (%)", 0, 100, 0, key=f"milestone_progress_{i}")
+        milestones.append({"name": name, "description": desc, "completed": False, "progress": progress})
     
     if st.button("Submit Project", use_container_width=True, key="submit_project_button"):
         if title and description:
-            post_idea(title, description, st.session_state["user_uid"], str(deadline), milestones, contact)
+            post_idea(title, description, st.session_state["user_uid"], str(deadline), milestones, contact, tags, skills_needed)
             st.success("Your project has been posted")
             st.rerun()
         else:
@@ -708,15 +1046,20 @@ elif st.session_state.current_page == "Team Chat":
         st.subheader(f"Chat: {selected_title}")
         chat_ref = db.collection("posts").document(selected_post_id).collection("chat")
 
+        # NEW: File upload for chat
+        uploaded_file = st.file_uploader("Upload a file", type=["pdf", "docx", "xlsx", "jpg", "png", "zip"], key="chat_file_upload")
+        
         # Chat messages display
         chat_container = st.container()
         with chat_container:
-            chat_messages = list(chat_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(20).stream())
+            chat_messages = list(chat_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(50).stream())
             for msg in reversed(chat_messages):
                 msg_data = msg.to_dict()
                 sender = safe_get(msg_data, "sender", "Unknown")
                 content = safe_get(msg_data, "message", "")
                 timestamp = safe_get(msg_data, "timestamp", datetime.datetime.utcnow()).strftime("%H:%M")
+                file_url = safe_get(msg_data, "file_url")
+                file_name = safe_get(msg_data, "file_name")
                 
                 # Different styling for current user
                 if sender == st.session_state["email"]:
@@ -724,15 +1067,25 @@ elif st.session_state.current_page == "Team Chat":
                     <div style="background: #e6f2ff; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: right;">
                         <div><strong>You</strong> • {timestamp}</div>
                         <div>{content}</div>
-                    </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown(f"""
                     <div style="background: #f8f9fa; padding: 10px; border-radius: 10px; margin: 5px 0; border: 1px solid #dee2e6;">
                         <div><strong>{sender}</strong> • {timestamp}</div>
                         <div>{content}</div>
+                    """, unsafe_allow_html=True)
+                
+                # File display
+                if file_url:
+                    st.markdown(f"""
+                    <div style="margin-top: 5px;">
+                        <a href="{file_url}" target="_blank" style="color: #0d6efd; text-decoration: none;">
+                            📎 {file_name}
+                        </a>
                     </div>
                     """, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
 
         # Message input
         st.markdown("---")
@@ -740,8 +1093,11 @@ elif st.session_state.current_page == "Team Chat":
         col1, col2 = st.columns([1, 3])
         with col1:
             if st.button("Send", key=f"send_button_{selected_post_id}"):
-                if new_msg.strip():
-                    if post_chat_message(chat_ref, new_msg, st.session_state["email"]):
+                file_url = None
+                if uploaded_file:
+                    file_url = upload_image_to_firebase(uploaded_file)
+                if new_msg.strip() or file_url:
+                    if post_chat_message(chat_ref, new_msg, st.session_state["email"], file_url):
                         st.success("Message sent")
                         st.rerun()
         with col2:
@@ -770,6 +1126,9 @@ elif st.session_state.current_page == "Products & Services":
             prod_contact = st.text_input("Contact Information", key="prod_contact")
             prod_image = st.file_uploader("Product Image", type=["png", "jpg", "jpeg"], key="prod_image")
             
+            # NEW: Rating system
+            prod_rating = st.slider("Quality Rating (1-5)", 1, 5, 3, key="prod_rating")
+            
             if st.button("Submit Product", use_container_width=True, key="submit_product_button"):
                 if prod_title and prod_desc and prod_contact and prod_price:
                     image_url = upload_image_to_firebase(prod_image) if prod_image else None
@@ -783,7 +1142,9 @@ elif st.session_state.current_page == "Products & Services":
                         "contact": prod_contact,
                         "image_url": image_url,
                         "createdBy": st.session_state["user_uid"],
-                        "createdAt": datetime.datetime.utcnow()
+                        "createdAt": datetime.datetime.utcnow(),
+                        "rating": prod_rating,
+                        "reviews": []
                     })
                     st.success("Product submitted to marketplace")
                     st.rerun()
@@ -799,6 +1160,9 @@ elif st.session_state.current_page == "Products & Services":
             serv_price = st.text_input("Price", key="serv_price")
             serv_contact = st.text_input("Contact Information", key="serv_contact")
             
+            # NEW: Service availability
+            availability = st.selectbox("Availability", ["Full-time", "Part-time", "Contract", "As needed"], key="serv_availability")
+            
             if st.button("Submit Service", use_container_width=True, key="submit_service_button"):
                 if serv_title and serv_desc and serv_contact and serv_price:
                     db.collection("products_services").add({
@@ -809,6 +1173,7 @@ elif st.session_state.current_page == "Products & Services":
                         "description": serv_desc,
                         "price": serv_price,
                         "contact": serv_contact,
+                        "availability": availability,
                         "createdBy": st.session_state["user_uid"],
                         "createdAt": datetime.datetime.utcnow(),
                         "volunteers": []
@@ -829,20 +1194,38 @@ elif st.session_state.current_page == "Products & Services":
                 # Filter options
                 filter_type = st.selectbox("Filter by Type", ["All", "Products", "Services"], key="marketplace_filter")
                 
+                # NEW: Search
+                search_query = st.text_input("Search items", key="marketplace_search")
+                
                 # Display items
                 for idx, (item_id, item) in enumerate(items):
                     item_type = safe_get(item, "type", "unknown")
+                    
+                    # Apply filter
                     if filter_type == "Products" and item_type != "product":
                         continue
                     if filter_type == "Services" and item_type != "service":
                         continue
                         
+                    # Apply search
+                    if search_query:
+                        search_lower = search_query.lower()
+                        title = safe_get(item, "title", "").lower()
+                        desc = safe_get(item, "description", "").lower()
+                        if search_lower not in title and search_lower not in desc:
+                            continue
+                            
                     with st.container():
                         st.markdown(f"<div class='product-card'>", unsafe_allow_html=True)
                         
                         # Header with type badge
                         st.markdown(f"**{safe_get(item, 'title', 'Untitled Item')}**")
                         st.caption(f"Type: {'Product' if item_type == 'product' else 'Service' if item_type == 'service' else 'Item'}")
+                        
+                        # NEW: Rating display
+                        rating = safe_get(item, "rating", 0)
+                        if rating > 0:
+                            st.write(f"⭐ {'★' * rating}{'☆' * (5 - rating)}")
                         
                         image_url = safe_get(item, "image_url")
                         if image_url:
@@ -856,6 +1239,12 @@ elif st.session_state.current_page == "Products & Services":
                         # Details
                         st.caption(f"By Team: {safe_get(item, 'team_title', 'Unknown Team')}")
                         st.write(safe_get(item, "description", "No description available"))
+                        
+                        # NEW: Availability for services
+                        if item_type == "service":
+                            availability = safe_get(item, "availability")
+                            if availability:
+                                st.write(f"**Availability**: {availability}")
                         
                         # Price
                         price = safe_get(item, "price", "Not specified")
@@ -878,6 +1267,38 @@ elif st.session_state.current_page == "Products & Services":
                             else:
                                 st.info("You're already volunteering for this service")
                         
+                        # NEW: Reviews for products
+                        if item_type == "product":
+                            reviews = safe_get(item, "reviews", [])
+                            with st.expander(f"Reviews ({len(reviews)})"):
+                                if reviews:
+                                    for review in reviews:
+                                        st.write(f"**{safe_get(review, 'user', 'Anonymous')}** ⭐ {safe_get(review, 'rating', 0)}")
+                                        st.write(safe_get(review, "comment", ""))
+                                        st.markdown("---")
+                                else:
+                                    st.info("No reviews yet")
+                            
+                            # Add review
+                            if st.session_state["user_uid"] not in [r.get("user_id") for r in reviews]:
+                                with st.form(key=f"review_form_{item_id}"):
+                                    st.subheader("Add a Review")
+                                    rating = st.slider("Rating", 1, 5, 3, key=f"review_rating_{item_id}")
+                                    comment = st.text_area("Comment", key=f"review_comment_{item_id}")
+                                    if st.form_submit_button("Submit Review"):
+                                        new_review = {
+                                            "user": st.session_state["email"],
+                                            "user_id": st.session_state["user_uid"],
+                                            "rating": rating,
+                                            "comment": comment,
+                                            "timestamp": datetime.datetime.utcnow()
+                                        }
+                                        db.collection("products_services").document(item_id).update({
+                                            "reviews": firestore.ArrayUnion([new_review])
+                                        })
+                                        st.success("Review submitted")
+                                        st.rerun()
+                        
                         # Owner controls
                         if safe_get(item, "createdBy") == st.session_state["user_uid"]:
                             if st.button("Delete", key=f"delete_{item_id}_{idx}", type="secondary"):
@@ -887,6 +1308,117 @@ elif st.session_state.current_page == "Products & Services":
                         
                         st.markdown("</div>", unsafe_allow_html=True)
                         st.markdown("---")
+
+# NEW: User Profile Page
+elif st.session_state.current_page == "My Profile":
+    st.header("My Profile")
+    
+    # Get user profile
+    profile = get_user_profile(st.session_state["user_uid"]) or {}
+    
+    # Profile form
+    with st.form(key="profile_form"):
+        display_name = st.text_input("Display Name", value=profile.get("display_name", ""))
+        bio = st.text_area("Bio", value=profile.get("bio", ""))
+        skills = st.text_area("Skills (comma separated)", value=", ".join(profile.get("skills", [])))
+        contact_info = st.text_area("Contact Information", value=profile.get("contact_info", ""))
+        profile_image = st.file_uploader("Profile Image", type=["png", "jpg", "jpeg"])
+        
+        if st.form_submit_button("Save Profile"):
+            profile_data = {
+                "display_name": display_name,
+                "bio": bio,
+                "skills": [s.strip() for s in skills.split(",") if s.strip()],
+                "contact_info": contact_info,
+                "last_updated": datetime.datetime.utcnow()
+            }
+            
+            # Upload profile image if provided
+            if profile_image:
+                image_url = upload_image_to_firebase(profile_image)
+                if image_url:
+                    profile_data["profile_image"] = image_url
+            
+            update_user_profile(st.session_state["user_uid"], profile_data)
+            st.success("Profile saved successfully")
+            st.rerun()
+    
+    # Display profile
+    if profile:
+        st.subheader("Your Profile")
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            if "profile_image" in profile:
+                st.image(profile["profile_image"], width=150)
+            else:
+                st.info("No profile image")
+        with col2:
+            st.write(f"**Name:** {profile.get('display_name', 'Not set')}")
+            st.write(f"**Email:** {st.session_state['email']}")
+            st.write(f"**Bio:** {profile.get('bio', 'Not set')}")
+            if "skills" in profile and profile["skills"]:
+                st.write("**Skills:**")
+                for skill in profile["skills"]:
+                    st.markdown(f'<span class="tag">{skill}</span>', unsafe_allow_html=True)
+            if "contact_info" in profile:
+                st.write(f"**Contact:** {profile['contact_info']}")
+
+# NEW: Bookmarks Page
+elif st.session_state.current_page == "Bookmarks":
+    st.header("Your Bookmarked Projects")
+    
+    posts = get_all_posts()
+    bookmarked_posts = [p for p in posts if st.session_state["user_uid"] in safe_get(p[1], "bookmarks", [])]
+    
+    if not bookmarked_posts:
+        st.info("You haven't bookmarked any projects yet")
+    for post_id, post in bookmarked_posts:
+        title = safe_get(post, 'title', 'Untitled Project')
+        team_size = len(safe_get(post, 'team', []))
+        status = safe_get(post, 'status', 'Active')
+        
+        with st.expander(f"{title} - Team: {team_size} members | Status: {status}"):
+            st.write(safe_get(post, "description", "No description available")[:200] + "...")
+            st.caption(f"Created by: {safe_get(post, 'createdBy', 'Unknown')}")
+            
+            if st.button("View Project", key=f"view_{post_id}"):
+                st.session_state.current_page = "Project Ideas"
+                st.experimental_set_query_params(project=post_id)
+                st.rerun()
+            
+            if st.button("Remove Bookmark", key=f"remove_bookmark_{post_id}"):
+                toggle_bookmark(post_id, st.session_state["user_uid"])
+                st.rerun()
+
+# NEW: Notifications Page
+elif st.session_state.current_page == "Notifications":
+    st.header("Your Notifications")
+    
+    doc = db.collection("notifications").document(st.session_state["user_uid"]).get()
+    notifications = []
+    if doc.exists:
+        notifications = safe_get(doc.to_dict(), "items", [])
+    
+    # Reset notification count
+    st.session_state.notification_count = 0
+    
+    if not notifications:
+        st.info("You have no notifications")
+    for i, notification in enumerate(notifications):
+        read_class = "read" if notification.get("read", False) else "unread"
+        with st.container():
+            st.markdown(f"<div class='notification {read_class}'>", unsafe_allow_html=True)
+            col1, col2 = st.columns([8, 1])
+            with col1:
+                st.write(f"**{notification.get('message', '')}**")
+                st.caption(notification.get("timestamp").strftime("%Y-%m-%d %H:%M"))
+            with col2:
+                if not notification.get("read", False):
+                    if st.button("✓", key=f"mark_read_{i}"):
+                        mark_notification_read(st.session_state["user_uid"], i)
+                        st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("---")
 
 # Rules Page
 elif st.session_state.current_page == "Rules":
@@ -900,6 +1432,8 @@ elif st.session_state.current_page == "Rules":
             <li style="margin: 10px 0;"><strong>Verify information</strong>: Ensure accuracy before sharing</li>
             <li style="margin: 10px 0;"><strong>Protect intellectual property</strong>: Always credit sources</li>
             <li style="margin: 10px 0;"><strong>Report issues</strong>: Notify admins of any problems or violations</li>
+            <li style="margin: 10px 0;"><strong>Quality contributions</strong>: Maintain high standards for products and services</li>
+            <li style="margin: 10px 0;"><strong>Respect deadlines</strong>: Communicate proactively if you can't meet commitments</li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -941,25 +1475,48 @@ elif st.session_state.current_page == "Stats":
         </div>
         """, unsafe_allow_html=True)
     
-    # Activity chart placeholder
-    st.subheader("Activity Over Time")
-    st.line_chart({
-        'Ideas': [5, 12, 8, 15, 20, 25, 30],
-        'Products': [2, 5, 7, 10, 12, 15, 18],
-        'Services': [1, 3, 5, 8, 10, 12, 15]
-    })
-
-    # Top teams
-    st.subheader("Top Teams by Members")
-    teams_data = defaultdict(int)
+    # NEW: Activity chart with real data
+    st.subheader("Project Activity Timeline")
+    posts = db.collection("posts").stream()
+    timeline_data = []
+    for post in posts:
+        data = post.to_dict()
+        timeline_data.append({
+            "Project": safe_get(data, "title", "Untitled"),
+            "Start": safe_get(data, "createdAt"),
+            "End": safe_get(data, "deadline"),
+            "Status": safe_get(data, "status", "Unknown")
+        })
+    
+    if timeline_data:
+        df = pd.DataFrame(timeline_data)
+        fig = px.timeline(df, x_start="Start", x_end="End", y="Project", color="Status",
+                          title="Project Timeline", color_discrete_map={
+                              "Planning": "blue",
+                              "In Progress": "orange",
+                              "Testing": "purple",
+                              "Completed": "green",
+                              "On Hold": "gray"
+                          })
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No project data available for timeline")
+    
+    # NEW: Skills distribution chart
+    st.subheader("Most Needed Skills")
+    all_skills = []
     posts = db.collection("posts").stream()
     for post in posts:
         data = post.to_dict()
-        teams_data[safe_get(data, "title", "Untitled Project")] = len(safe_get(data, "team", []))
+        all_skills.extend(safe_get(data, "skills_needed", []))
     
-    top_teams = sorted(teams_data.items(), key=lambda x: x[1], reverse=True)[:5]
-    for team, members in top_teams:
-        st.progress(min(members/20, 1.0), text=f"{team}: {members} members")
+    if all_skills:
+        skill_counts = pd.Series(all_skills).value_counts().head(10)
+        fig = px.bar(skill_counts, x=skill_counts.values, y=skill_counts.index, 
+                     orientation='h', title="Top 10 Skills in Demand")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No skills data available")
 
 # Admin Page
 elif st.session_state.current_page == "Admin":
@@ -967,7 +1524,7 @@ elif st.session_state.current_page == "Admin":
     st.warning("You have administrative privileges on this platform")
     
     # Create tabs for different admin functions
-    admin_tabs = st.tabs(["Project Ideas", "Products & Services", "User Management"])
+    admin_tabs = st.tabs(["Project Ideas", "Products & Services", "User Management", "Platform Analytics"])
     
     # Tab 1: Project Ideas Management
     with admin_tabs[0]:
@@ -981,7 +1538,7 @@ elif st.session_state.current_page == "Admin":
             with st.container():
                 st.markdown(f"**{safe_get(data, 'title', 'Untitled Project')}**")
                 st.caption(f"Created by: {safe_get(data, 'createdBy', 'Unknown')} | Team members: {len(safe_get(data, 'team', []))}")
-                st.write(safe_get(data, "description", "No description available"))
+                st.write(safe_get(data, "description", "No description available")[:200] + "...")
                 
                 deadline = safe_get(data, "deadline")
                 if deadline:
@@ -1031,7 +1588,7 @@ elif st.session_state.current_page == "Admin":
             with st.container():
                 st.markdown(f"**{safe_get(data, 'title', 'Untitled Item')}**")
                 st.caption(f"Type: {item_type} | Created by: {safe_get(data, 'createdBy', 'Unknown')}")
-                st.write(safe_get(data, "description", "No description available"))
+                st.write(safe_get(data, "description", "No description available")[:200] + "...")
                 
                 # FIXED: Robust image display with error handling
                 image_url = safe_get(data, "image_url")
@@ -1082,13 +1639,91 @@ elif st.session_state.current_page == "Admin":
                 st.success("Item submitted as admin")
                 st.rerun()
     
-    # Tab 3: User Management (Placeholder)
+    # Tab 3: User Management
     with admin_tabs[2]:
         st.subheader("User Management")
-        st.info("This feature is under development")
-        st.write("Future functionality will include:")
-        st.write("- Viewing all registered users")
-        st.write("- Managing user roles and permissions")
-        st.write("- Suspending or deleting user accounts")
+        
+        # Search users
+        search_query = st.text_input("Search users by email", key="user_search")
+        
+        users_ref = db.collection("profiles").stream()
+        users = []
+        for user in users_ref:
+            user_data = user.to_dict()
+            user_data["id"] = user.id
+            users.append(user_data)
+        
+        if search_query:
+            search_lower = search_query.lower()
+            users = [u for u in users if search_lower in u.get("email", "").lower()]
+        
+        if not users:
+            st.info("No users found")
+        for user in users:
+            with st.container():
+                st.markdown(f"**{user.get('display_name', 'No name')}**")
+                st.caption(f"ID: {user['id']} | Email: {user.get('email', 'No email')}")
+                
+                if "skills" in user and user["skills"]:
+                    st.write("**Skills:**")
+                    for skill in user["skills"]:
+                        st.markdown(f'<span class="tag">{skill}</span>', unsafe_allow_html=True)
+                
+                if st.button("View Profile", key=f"view_user_{user['id']}"):
+                    st.session_state.view_user_id = user["id"]
+                
+                # NEW: User suspension
+                if st.button("Suspend User", key=f"suspend_{user['id']}", type="secondary"):
+                    db.collection("suspended_users").document(user["id"]).set({
+                        "suspended_at": datetime.datetime.utcnow(),
+                        "reason": "Admin suspension"
+                    })
+                    st.success("User suspended")
+                    st.rerun()
+                
+                st.markdown("---")
+    
+    # NEW: Tab 4: Platform Analytics
+    with admin_tabs[3]:
+        st.subheader("Platform Analytics")
+        
+        # User growth chart
+        st.write("### User Growth Over Time")
+        users_ref = db.collection("profiles").order_by("createdAt").stream()
+        user_counts = []
+        current_count = 0
+        for user in users_ref:
+            current_count += 1
+            user_data = user.to_dict()
+            user_counts.append({
+                "Date": user_data.get("createdAt", datetime.datetime.utcnow()),
+                "Users": current_count
+            })
+        
+        if user_counts:
+            df = pd.DataFrame(user_counts)
+            fig = px.line(df, x="Date", y="Users", title="User Growth Over Time")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No user data available")
+        
+        # Project status distribution
+        st.write("### Project Status Distribution")
+        posts = db.collection("posts").stream()
+        status_counts = defaultdict(int)
+        for post in posts:
+            data = post.to_dict()
+            status = data.get("status", "Unknown")
+            status_counts[status] += 1
+        
+        if status_counts:
+            df = pd.DataFrame({
+                "Status": list(status_counts.keys()),
+                "Count": list(status_counts.values())
+            })
+            fig = px.pie(df, values='Count', names='Status', title='Project Status Distribution')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No project data available")
 
 st.markdown('</div>', unsafe_allow_html=True)
